@@ -1,5 +1,7 @@
 # AI-native Engineering (Executor-first + End-State Reviewer)
 
+> **Coverage status (2026-10-21): INCOMPLETE.** This is a portable controller starter, **not** the full engineering harness used across Android, Aurel, and Edria. The [practice-by-practice audit](docs/PRACTICE_COVERAGE.md) identifies missing approval/scope enforcement, autonomous work discovery, reviewer-before-merge, human validation batching, acceptance provenance, checkpoints and domain-specific adapters. Do not treat a passed controller test or a posted README as production verification.
+
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
 ## Verify this repository
@@ -33,13 +35,6 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md) and [exact integration instruct
 | `.github/workflows/ci.yml` | CI for the portable controller |
 | `scripts/publish.ps1` | create **private** `asapacsin/ai-native-engineering` and push from Windows with `gh` CLI |
 
-## Publishing to GitHub (Windows)
+## This repository is published
 
-Download and extract the ZIP, open PowerShell in the extracted `ai-native-engineering` folder. Install Git and GitHub CLI (`winget install --id Git.Git -e` and `winget install --id GitHub.cli -e`) if missing. Then:
-
-```powershell
-gh auth login
-.\scripts\publish.ps1
-```
-
-The script creates a private `asapacsin/ai-native-engineering`, initializes Git only if needed, commits the files, and pushes. It **will not overwrite an existing remote repository**. `gh auth login` should use the GitHub account that controls `asapacsin`. See the source references in the Bible. No repository is claimed to be online until the GitHub creation/push is confirmed.
+This repository is hosted at [asapacsin/ai-native-engineering](https://github.com/asapacsin/ai-native-engineering). The original bootstrap-only publishing script is retained for historical/reference purposes and deliberately refuses to overwrite this existing repository. Review the [coverage audit](docs/PRACTICE_COVERAGE.md) before claiming all source-project practices are implemented.
