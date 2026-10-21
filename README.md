@@ -11,6 +11,12 @@ python3 -m unittest discover -s tests -v
 python3 scripts/ai_native.py validate --contract examples/contract.json
 ```
 
+## Enforced governance and autonomous frontier
+
+The local tooling now includes contract-hash approval, scoped paths, exact-tip merge eligibility and independent requirement-scope checks (`scripts/governance.py`), and a dependency-aware autonomous frontier with deferred human tasks and a two-clean-pass human gate (`scripts/frontier.py`). **Neither component is an installed GitHub branch rule or an automatically running multi-agent service.**
+
+See **[operational enforcement commands](docs/ENFORCEMENT.md)** and the [practice coverage audit](docs/PRACTICE_COVERAGE.md) for the remaining gaps.
+
 ## Drive a project
 
 1. Copy and edit `examples/contract.json` (or start with `adapters/aurel.json` / `adapters/android.json`).

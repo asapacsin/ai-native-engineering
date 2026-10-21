@@ -206,6 +206,10 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
 
 
 def record(folder: Path, outcome: dict) -> dict:
+    # Bind every verdict (including failures) to the exact task contract.
+    contract = load_json(folder / "contract.json")
+    outcome["contract_hash"] = sha(json.dumps(contract, sort_keys=True, separators=(",", ":")).encode())
+    outcome["task_id"] = contract["task_id"]
     save_json(folder / "verdict.json", outcome)
     save_json(folder.parent / "latest.json", outcome)
     return outcome

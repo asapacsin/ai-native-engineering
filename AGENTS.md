@@ -12,3 +12,11 @@
 10. No secrets in reports, logs, commits, agent prompts or model inputs. Never claim this skeleton has called a real LLM without an explicitly configured reviewer/executor CLI.
 
 Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
+
+## Governance and continuation entry points
+
+- `python3 scripts/governance.py scope --repo <target> --contract <contract>` — reject out-of-scope and protected edits.
+- `python3 scripts/governance.py eligible --repo <target> --contract <contract> --requirements <requirements.json>` — check current commit, independent approval and reviewer PASS. Run in CI before merge.
+- `python3 scripts/frontier.py next --registry <work.json>` — discover authorized independent tasks; never invent a backlog item.
+- `python3 scripts/frontier.py human-packet --registry <work.json>` — batch real human-only work, not ordinary emulator automation.
+- Use separate approvals and required CI/branch rules; local role names and hooks are not security boundaries. See `docs/ENFORCEMENT.md`.
