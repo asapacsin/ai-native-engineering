@@ -1,0 +1,16 @@
+name: AI-native controller tests
+on:
+  push:
+  pull_request:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Validate example contracts
+        run: |
+          python3 scripts/ai_native.py validate --contract examples/contract.json
+          python3 scripts/ai_native.py validate --contract adapters/aurel.json
+          python3 scripts/ai_native.py validate --contract adapters/android.json
