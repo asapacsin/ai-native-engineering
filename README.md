@@ -1,6 +1,6 @@
 # AI-native Engineering (Executor-first + End-State Reviewer)
 
-> **Coverage status (2026-10-21): INCOMPLETE.** This is a portable controller starter, **not** the full engineering harness used across Android, Aurel, and Edria. The [practice-by-practice audit](docs/PRACTICE_COVERAGE.md) identifies missing approval/scope enforcement, autonomous work discovery, reviewer-before-merge, human validation batching, acceptance provenance, checkpoints and domain-specific adapters. Do not treat a passed controller test or a posted README as production verification.
+> **Coverage status (2026-10-22): INCOMPLETE.** The shared project has implemented *local* contract approval and scoped checks, an executor/reviewer loop, gate evidence, and a manually populated dependency-aware work frontier. It does **not** yet implement or verify every practice from Android, Aurel, and Edria. In particular, required CI/branch protection, automatic discovery from canonical sources, independent termination review, cost-aware model routing, durable checkpoint recovery, research/design-basis gates, and real project-specific device/GPU/visual validations remain missing or partial. See the [coverage audit](docs/PRACTICE_COVERAGE.md). 41 local tests are not full-system parity or proof of a GitHub Actions run.
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
@@ -33,13 +33,16 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md) and [exact integration instruct
 | Path | Role |
 | --- | --- |
 | `scripts/ai_native.py` | executable bounded orchestration, gate evidence, commit + dirty-source fingerprint |
-| `scripts/codex_bridge.py` | optional actual Codex executor (Luna) / independent reviewer (Astra) subprocess adapters |
+| `scripts/codex_bridge.py` | optional external Codex executor/reviewer subprocess adapters; live integration not certified |
+| `scripts/governance.py` | procedural approvals, scope checking, and exact-tip eligibility; not GitHub branch protection |
+| `scripts/frontier.py` | manually defined dependency frontier, blocker propagation, human handoff gate; no automatic source discovery |
+| `docs/PRACTICE_COVERAGE.md` | verified coverage audit and remaining migration roadmap |
 | `.claude/hooks/ai-native-stop.py` | opt-in end-state Stop hook, guards recursive loops |
 | `examples/contract.json` | sample spec/acceptance/budget/CLI gate contract |
 | `adapters/aurel.json`, `adapters/android.json` | source-specific gate examples; not a claim those apps were tested here |
 | `tests/` | controller behavioral tests including false PASS and stale review rejection |
 | `.github/workflows/ci.yml` | CI for the portable controller |
-| `scripts/publish.ps1` | create **private** `asapacsin/ai-native-engineering` and push from Windows with `gh` CLI |
+| `scripts/publish.ps1` | obsolete bootstrap helper, deliberately refuses to overwrite this existing repository |
 
 ## This repository is published
 
