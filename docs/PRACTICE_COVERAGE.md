@@ -51,10 +51,10 @@ Meaning of status:
 
 New, tested local components (see [enforcement guide](ENFORCEMENT.md)):
 
-- `scripts/governance.py`: approved task-contract hash; self-asserted non-Executor approver; recursive path allow/deny including default protected governance paths; current-worktree review fingerprint; exact-tip PASS and optional independent requirements scope check. **This is not branch protection or authenticated role separation.**
+- `scripts/governance.py`: approved task-contract hash; self-asserted non-Executor approver; recursive path allow/deny including default protected governance paths; current-worktree review fingerprint; exact-tip PASS and optional independent requirements scope check, local SHA-256 terminal traces with naturally-ended terminal state and fingerprint binding. **This is not branch protection, authenticated role separation or hardware attestation.**
 - `scripts/frontier.py`: dependency/cycle validation, ranked autonomous task frontier, blocker propagation, HUMAN_REQUIRED batch, two self-attested clean-pass human gate. **It does not automatically discover tasks from arbitrary existing documents or invoke agents.**
 - `scripts/ai_native.py`: each verdict now binds to a task contract hash as well as source snapshot; previous external executor/reviewer loop preserved.
-- `tests/test_governance.py` and `tests/test_frontier.py` cover unauthorized changes, stale review, altered contract, scope laundering, blocked-independent work, cycle rejection and batching. Local total: **37 passing tests** in this implementation snapshot.
+- `tests/test_governance.py` and `tests/test_frontier.py` cover unauthorized changes, stale review, altered contract, scope laundering, blocked-independent work, cycle rejection and batching. Local total: **41 passing tests** in this implementation snapshot.
 - `examples/work.json`, `examples/requirements.json` and CI syntax/registry checks.
 
 Remaining material gaps: real required GitHub branch rules, immutable/protected approval records and authenticated separation, non-claim-based E2E artifact truth, automatic discovery from specs/debt/capabilities, unattended termination Decider, actual model/cost measurement, source-project opt-in integration and device/GPU/visual adapters. The original matrix below reflects **baseline coverage before this implementation update**; this section is the latest delta, not blanket parity.

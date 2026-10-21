@@ -19,7 +19,8 @@ from pathlib import Path
 from ai_native import load_json, work_snapshot, validate_contract, save_json
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
-PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md")
+PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
+             "verification/requirements.json", "state/contracts/", "state/reviews.log")
 
 
 def digest(obj: dict) -> str:
@@ -121,18 +122,53 @@ def approve(repo: Path, contract: dict, actor: str, role: str) -> dict:
     return item
 
 
+def evidence_level_satisfies(actual: str, minimum: str) -> bool:
+    # Device, visual and performance are separate proof domains, not a linear ladder.
+    standard = ["static", "unit", "integration", "e2e"]
+    if minimum in standard:
+        return actual in standard and standard.index(actual) >= standard.index(minimum)
+    return actual == minimum
+
+
+def verified_terminal_artifact(repo: Path, reference: dict, expected: str, fingerprint: str) -> str | None:
+    """Verify an on-disk terminal trace by checksum and observed, natural final state."""
+    import re
+    if not isinstance(reference, dict):
+        return "artifact reference must include relative path and sha256"
+    rel, expected_digest = reference.get("path"), reference.get("sha256")
+    if not isinstance(rel, str) or not isinstance(expected_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_digest):
+        return "artifact requires a valid relative path and sha256"
+    path = (repo / rel).resolve()
+    if not path.is_relative_to(repo.resolve()) or not path.is_file():
+        return "terminal artifact path missing or escapes repository"
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != expected_digest:
+        return "terminal artifact checksum mismatch"
+    try:
+        record = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return "terminal artifact is not JSON"
+    if (not isinstance(record, dict) or record.get("observed_terminal") != expected
+            or record.get("ended_naturally") is not True
+            or record.get("source_fingerprint") != fingerprint):
+        return "terminal outcome, natural end or source fingerprint was not observed"
+    return None
+
+
 def required_evidence_issues(repo: Path, requirements: dict, latest: dict) -> list[str]:
-    """Requirement-owned minimum scope cannot be weakened by task contract."""
+    """Independent requirement-owned minimum scope and real terminal artifact binding."""
     problems: list[str] = []
+    if (requirements.get("schema_version") != 1 or
+            not isinstance(requirements.get("requirements"), list) or not requirements["requirements"]):
+        return ["independent requirements manifest must have schema_version=1 and nonempty requirements"]
     gates_path = repo / ".ai-native" / "runs" / latest.get("task_id", "")
-    # Evidence is read from the final cycle attempt, not an earlier successful gate.
     attempt = int(latest.get("attempt", 0))
     datafile = gates_path / f"attempt-{attempt:02}" / "gates.json"
     try:
         records = {g["id"]: g for g in load_json(datafile)["gates"]}
     except (OSError, ValueError, TypeError, KeyError):
         return ["final attempt gate evidence unavailable"]
-    for req in requirements.get("requirements", []):
+    for req in requirements["requirements"]:
         if not isinstance(req, dict) or not req.get("id"):
             problems.append("requirement entry missing id")
             continue
@@ -140,20 +176,30 @@ def required_evidence_issues(repo: Path, requirements: dict, latest: dict) -> li
         if level not in LEVELS:
             problems.append(f"{req['id']}: invalid min_level")
             continue
-        for gid in req.get("gate_ids", []):
+        gate_ids = req.get("gate_ids", [])
+        if not isinstance(gate_ids, list) or not gate_ids:
+            problems.append(f"{req['id']}: no required gates declared")
+            continue
+        for gid in gate_ids:
             evidence = records.get(gid)
             if not evidence or evidence.get("status") != "PASS":
                 problems.append(f"{req['id']}: required gate {gid} has no passing evidence")
-            elif LEVELS.index(evidence.get("level", "static")) < LEVELS.index(level):
+            elif not evidence_level_satisfies(evidence.get("level", "static"), level):
                 problems.append(f"{req['id']}: gate {gid} scope below required {level}")
-        if not req.get("gate_ids"):
-            problems.append(f"{req['id']}: no required gates declared")
         if req.get("terminal_required"):
             terminal = req.get("terminal_state")
             refs = req.get("artifact_refs", [])
-            if not terminal or not isinstance(refs, list) or not refs:
+            if not isinstance(terminal, str) or not terminal or not isinstance(refs, list) or not refs:
                 problems.append(f"{req['id']}: missing terminal state or artifact reference")
-            # Artifact references are declarations here; external validator must validate real files.
+            else:
+                fingerprint = latest.get("snapshot", {}).get("fingerprint")
+                for reference in refs:
+                    try:
+                        reason = verified_terminal_artifact(repo, reference, terminal, fingerprint)
+                    except (OSError, ValueError):
+                        reason = "terminal artifact unreadable"
+                    if reason:
+                        problems.append(f"{req['id']}: {reason}")
     return problems
 
 
@@ -205,6 +251,8 @@ def main(argv=None):
         if args.action == "approve":
             print(json.dumps(approve(repo, contract, args.actor, args.role), indent=2))
             return 0
+        if args.action == "eligible" and not args.requirements:
+            raise ValueError("eligible requires an independent --requirements manifest")
         problems = (scope_issues(repo, contract) if args.action == "scope" else
                     eligibility(repo, contract, load_json(Path(args.requirements)) if args.requirements else None))
         print(json.dumps({"result": "ELIGIBLE" if not problems else "NOT_ELIGIBLE", "problems": problems}, indent=2))

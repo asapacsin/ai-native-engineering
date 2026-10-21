@@ -88,16 +88,47 @@ class GovernanceTests(unittest.TestCase):
     def test_required_scope_blocks_laundering(self):
         governance.approve(self.repo, self.contract, "planner", "planner")
         self.assertVerdict("PASS")
-        policy = {"requirements":[{"id":"voice-session", "min_level":"device", "gate_ids":["unit"]}]}
+        policy = {"schema_version": 1, "requirements":[{"id":"voice-session", "min_level":"device", "gate_ids":["unit"]}]}
         problems = governance.eligibility(self.repo, self.contract, policy)
         self.assertTrue(any("below required" in p for p in problems))
 
     def test_terminal_evidence_missing_blocks(self):
         governance.approve(self.repo, self.contract, "planner", "planner")
         self.assertVerdict("PASS")
-        policy = {"requirements":[{"id":"full-trip", "min_level":"unit", "gate_ids":["unit"],
+        policy = {"schema_version": 1, "requirements":[{"id":"full-trip", "min_level":"unit", "gate_ids":["unit"],
                                    "terminal_required":True}]}
         self.assertTrue(any("terminal" in p for p in governance.eligibility(self.repo, self.contract, policy)))
+
+    def test_device_cannot_be_substituted_by_visual_or_performance(self):
+        self.assertFalse(governance.evidence_level_satisfies("performance", "device"))
+        self.assertFalse(governance.evidence_level_satisfies("visual", "device"))
+        self.assertTrue(governance.evidence_level_satisfies("integration", "unit"))
+
+    def test_terminal_trace_must_be_real_bound_and_natural(self):
+        import hashlib
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        snap = ai_native.work_snapshot(self.repo)["fingerprint"]
+        trace = self.repo / "trace.json"
+        trace.write_text(json.dumps({"observed_terminal":"ARRIVED", "ended_naturally":True,
+                                     "source_fingerprint":snap}), encoding="utf-8")
+        ref = {"path":"trace.json", "sha256":hashlib.sha256(trace.read_bytes()).hexdigest()}
+        result = governance.verified_terminal_artifact(self.repo, ref, "ARRIVED", snap)
+        self.assertIsNone(result)
+        trace.write_text("{}", encoding="utf-8")
+        self.assertIn("checksum", governance.verified_terminal_artifact(self.repo, ref, "ARRIVED", snap))
+
+    def test_empty_independent_manifest_rejected(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        problems = governance.eligibility(self.repo, self.contract, {"schema_version": 1, "requirements": []})
+        self.assertTrue(any("nonempty" in p for p in problems))
+
+    def test_requirement_manifest_is_protected(self):
+        p = self.repo / "verification/requirements.json"
+        p.parent.mkdir()
+        p.write_text("{}")
+        self.assertTrue(any("protected" in issue for issue in governance.scope_issues(self.repo, self.contract)))
 
     def test_globs_are_slash_aware(self):
         self.assertTrue(governance.patterns_match("src/sub/main.py", "src/**/*.py"))

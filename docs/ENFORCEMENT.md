@@ -47,7 +47,20 @@ The current implementation provides **local procedural enforcement**, not a host
    python3 scripts/governance.py eligible --repo ../project-example --contract my-contract.json --requirements ../project-example/verification/requirements.json
    ```
 
-   Requirements are **owned separately from the executor contract**. An appropriate requirements file looks like `examples/requirements.json`, listing every mandatory requirement with `min_level` and `gate_ids`. Missing passing gates or too-low evidence levels cause NOT_ELIGIBLE. For terminal/E2E claims, declare `terminal_required`; the current portable core requires terminal fields but **does not validate external artifact truth**. Keep actual end-to-end/device/GPU proof in the source project's specialized validators; do not treat this CLI alone as sufficient evidence.
+   Requirements are **owned separately from the executor contract**. An appropriate requirements file looks like `examples/requirements.json`, listing every mandatory requirement with `min_level` and `gate_ids`. Missing passing gates or too-low evidence levels cause NOT_ELIGIBLE. For terminal/E2E claims, declare `terminal_required`, `terminal_state`, and `artifact_refs` in the independent requirements policy. Each artifact ref is a relative path and exact SHA-256. The portable core now **reads the real local JSON trace**, checks its checksum, and requires an observed terminal state, natural completion and matching source fingerprint. Example:
+
+   ```json
+   {
+     "id": "navigation-arrival",
+     "min_level": "e2e",
+     "gate_ids": ["arrival-test"],
+     "terminal_required": true,
+     "terminal_state": "ARRIVED",
+     "artifact_refs": [{"path": ".ai-native/evidence/arrival.json", "sha256": "64 lowercase hex digits"}]
+   }
+   ```
+
+   The referenced trace JSON must contain `{"observed_terminal":"ARRIVED","ended_naturally":true,"source_fingerprint":"<latest reviewed fingerprint>"}`. It must be generated from the actual test run, not authored as a fake PASS record. **Checksums and claims still cannot prove that physical-device, GPU or external service execution was genuine**; keep the domain-specific runner/CI attestation. Do not treat this CLI alone as sufficient hardware evidence.
 
 6. Merge **only** after `ELIGIBLE`, CI and appropriate review approve the exact branch tip. This script does not execute merges. Put it into a protected GitHub Actions required check / branch rule for real integration enforcement; absent branch protection, GitHub still permits bypassing it.
 
