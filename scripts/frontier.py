@@ -11,6 +11,8 @@ import json
 import sys
 from pathlib import Path
 
+from control_plane import decide_frontier
+
 STATUSES = {"NOT_RUN", "RUNNING", "PASS", "FAIL", "BLOCKED_EXTERNAL", "HUMAN_REQUIRED", "NOT_APPLICABLE"}
 OWNERS = {"AUTONOMOUS", "HUMAN_PHYSICAL", "HUMAN_DECISION", "HUMAN_CREDENTIAL", "EXTERNAL_RESOURCE"}
 TERMINAL = {"PASS", "NOT_APPLICABLE"}
@@ -86,26 +88,11 @@ def frontier(data: dict) -> dict:
     issues = check(data)
     if issues:
         raise ValueError("; ".join(issues))
-    by_id = {w["id"]: w for w in data["work"]}
-    eligible, blocked, human, done = [], [], [], []
-    for w in data["work"]:
-        state = w["status"]
-        if state in TERMINAL:
-            done.append(w["id"])
-            continue
-        if state == "HUMAN_REQUIRED":
-            human.append(w)
-            continue
-        dependencies = [d for d in w["depends_on"] if by_id[d]["status"] != "PASS"]
-        if state == "BLOCKED_EXTERNAL" or dependencies:
-            blocked.append({"id": w["id"], "blocked_by": w.get("blocked_by") or dependencies})
-        elif w["owner"] == "AUTONOMOUS" and state in {"NOT_RUN", "FAIL", "RUNNING"}:
-            eligible.append(w)
-        else:
-            blocked.append({"id": w["id"], "blocked_by": "owner or status requires external action"})
-    eligible.sort(key=lambda x: (x.get("priority", 100), x["id"]))
-    return {"autonomous": eligible, "blocked": blocked, "human": human, "done": done,
-            "AUTONOMOUS_ACTION_AVAILABLE": "YES" if eligible else "NO"}
+    decision = decide_frontier(data["work"])
+    report = dict(decision.get("frontier", {}))
+    report["control_decision"] = decision["action"]
+    report["decision_sha256"] = decision["decision_sha256"]
+    return report
 
 
 def fingerprint(data: dict) -> str:
@@ -158,8 +145,12 @@ def main(argv=None):
         report = frontier(data)
         if args.action == "human-gate":
             issues = readiness(data, state)
-            print(json.dumps({"phase": "HUMAN_VALIDATION_READY" if not issues else "NOT_READY", "problems": issues}, indent=2))
-            return 0 if not issues else 2
+            decision = decide_frontier(data["work"], state.get("clean_passes", 0),
+                                       state.get("fingerprint"), fingerprint(data))
+            ready = not issues and decision["action"] == "HUMAN_HANDOFF"
+            print(json.dumps({"phase": "HUMAN_VALIDATION_READY" if ready else "NOT_READY",
+                              "control_decision": decision["action"], "problems": issues}, indent=2))
+            return 0 if ready else 2
         if args.action == "human-packet":
             report = {"items": report["human"], "count": len(report["human"]),
                       "warning": "Human tasks have not been performed or approved"}

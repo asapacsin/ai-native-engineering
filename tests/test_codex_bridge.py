@@ -26,7 +26,7 @@ class CodexBridgeTests(unittest.TestCase):
 
     def test_reviewer_schema_requires_fingerprint_and_verdict(self):
         self.assertEqual(set(bridge.REVIEW_SCHEMA["required"]),
-                         {"verdict", "reviewed_fingerprint", "findings", "next_action"})
+                         {"verdict", "reviewed_fingerprint", "reviewed_contract_hash", "findings", "next_action"})
 
     def test_review_prompt_avoids_self_review(self):
         content = bridge.role_prompt("reviewer", {"snapshot": {"fingerprint": "f00"}})

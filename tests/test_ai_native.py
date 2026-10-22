@@ -43,6 +43,7 @@ class AiNativeTests(unittest.TestCase):
             + f"'verdict':'{verdict}',"
             + ("'reviewed_fingerprint':'wrong'," if wrong_fingerprint else
                "'reviewed_fingerprint':packet['snapshot']['fingerprint'],")
+            + "'reviewed_contract_hash':packet['contract_hash'],"
             + "'findings':[],'next_action':'done'}))\n", encoding="utf-8")
 
     def call(self, with_reviewer=True):

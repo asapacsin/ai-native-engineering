@@ -20,3 +20,11 @@ Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 - `python3 scripts/frontier.py next --registry <work.json>` — discover authorized independent tasks; never invent a backlog item.
 - `python3 scripts/frontier.py human-packet --registry <work.json>` — batch real human-only work, not ordinary emulator automation.
 - Use separate approvals and required CI/branch rules; local role names and hooks are not security boundaries. See `docs/ENFORCEMENT.md`.
+
+
+## Deterministic control plane is authoritative
+
+- Use scripts/control_plane.py as the single pure decision engine for retry/stop, dependency-frontier continuation, human handoff, and merge eligibility.
+- Do not let an Executor, Reviewer, prompt, or test summary override a control-plane decision. Invalid, stale, missing, or lower-scope evidence must fail closed.
+- The control plane performs no model/network/shell calls; adapters supply observed state. Keep model routing and domain-specific device/GPU/visual proof in adapters.
+- A successful task review is not merge authorization. Use scripts/governance.py and required CI/branch rules; local approval strings are procedural, not authenticated security boundaries.

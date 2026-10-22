@@ -18,10 +18,11 @@ REVIEW_SCHEMA = {
     "properties": {
         "verdict": {"type": "string", "enum": ["PASS", "REWORK", "BLOCKED", "NOT_VERIFIED"]},
         "reviewed_fingerprint": {"type": "string"},
+        "reviewed_contract_hash": {"type": "string"},
         "findings": {"type": "array", "items": {"type": "string"}},
         "next_action": {"type": "string"}
     },
-    "required": ["verdict", "reviewed_fingerprint", "findings", "next_action"]
+    "required": ["verdict", "reviewed_fingerprint", "reviewed_contract_hash", "findings", "next_action"]
 }
 
 
@@ -52,8 +53,9 @@ def role_prompt(role: str, payload: dict, feedback: dict | None = None) -> str:
             "git diff HEAD and relevant changed files yourself. Check the real behavior against the contract and "
             "required evidence levels. Investigate correctness, security, architecture/invariant drift, failure "
             "cases, tests that prove less than they claim, device/GPU gaps. NEVER edit files, commit or merge. "
-            "Return ONLY strict JSON matching the provided schema. The field reviewed_fingerprint MUST be exactly "
-            "the packet's snapshot.fingerprint. PASS only if all REQUIRED gates actually passed and the task is "
+            "Return ONLY strict JSON matching the provided schema. reviewed_fingerprint MUST exactly equal "
+            "packet.snapshot.fingerprint and reviewed_contract_hash MUST exactly equal packet.contract_hash. "
+            "PASS only if all REQUIRED gates actually passed and the task is "
             "satisfied at its asserted evidence level. For failures use REWORK (fixable defect), BLOCKED (named "
             "dependency), or NOT_VERIFIED (insufficient proof). Provide a targeted next_action. "
             "Review packet:\n" + json.dumps(payload, indent=2))

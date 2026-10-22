@@ -17,6 +17,8 @@ import sys
 import time
 from pathlib import Path
 
+from control_plane import canonical_hash, decide_cycle
+
 VERDICTS = {"PASS", "REWORK", "BLOCKED", "NOT_VERIFIED"}
 TASK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
 EXCLUDE_UNTRACKED = (".ai-native/", ".git/", "__pycache__/", ".pytest_cache/")
@@ -103,6 +105,8 @@ def validate_contract(contract: dict) -> None:
         raise ValueError("max_total_seconds must be positive")
     if not isinstance(contract.get("acceptance", ""), str) or not contract["acceptance"].strip():
         raise ValueError("acceptance must be explicit")
+    if not any(gate.get("required", True) for gate in gates):
+        raise ValueError("at least one required gate is mandatory")
 
 
 def call_argv(argv: list[str], repo: Path, env: dict, timeout: float) -> dict:
@@ -130,14 +134,16 @@ def parse_command(value: str | None) -> list[str] | None:
 
 def review_packet(contract: dict, snapshot: dict, gates: list[dict], attempt: int) -> dict:
     return {"schema_version": 1, "task_id": contract["task_id"], "goal": contract["goal"],
+            "contract_hash": canonical_hash(contract),
             "acceptance": contract["acceptance"], "boundaries": contract.get("boundaries", []),
             "attempt": attempt, "snapshot": snapshot, "gates": gates,
             "review_instructions": (
                 "INDEPENDENT, READ-ONLY REVIEW. Inspect actual git diff and changed files, not executor prose. "
                 "Validate acceptance, architecture, invariant safety, proof levels, missing E2E, and secret risks. "
                 "Write review result JSON with verdict PASS / REWORK / BLOCKED / NOT_VERIFIED, "
-                "reviewed_fingerprint equal to snapshot.fingerprint, findings array, next_action string. "
-                "PASS only if all required acceptance levels have genuine evidence. Do not modify repo."
+                "reviewed_fingerprint exactly equal to snapshot.fingerprint, reviewed_contract_hash exactly equal "
+                "to contract_hash, findings array, next_action string. PASS only if all required acceptance levels "
+                "have genuine evidence. Do not modify repo."
             )}
 
 
@@ -158,6 +164,9 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
         if execution["status"] != "PASS":
             outcome = "BLOCKED" if execution["status"] == "BLOCKED" else "REWORK"
             return record(folder, {"verdict": outcome, "next_action": "Resolve executor command failure", "executor": execution, "attempt": attempt})
+    # Capture the exact tree before verification. A test/build command that mutates
+    # source invalidates the evidence rather than silently redefining what was tested.
+    pre_gate_snapshot = work_snapshot(repo)
     gates = []
     for gate in contract["gates"]:
         if time.monotonic() >= deadline:
@@ -166,8 +175,18 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
         outcome = call_argv(gate["command"], repo, env, min(gate.get("timeout_seconds", 180), max(1, deadline - time.monotonic())))
         outcome.update({"id": gate["id"], "level": gate["level"], "required": gate.get("required", True)})
         gates.append(outcome)
-    save_json(folder / "gates.json", {"gates": gates})
+    for gate in gates:
+        gate["source_fingerprint"] = pre_gate_snapshot["fingerprint"]
+    save_json(folder / "gates.json", {"gates": gates,
+                                      "source_fingerprint": pre_gate_snapshot["fingerprint"]})
     snapshot = work_snapshot(repo)
+    if snapshot["fingerprint"] != pre_gate_snapshot["fingerprint"]:
+        return record(folder, {"verdict": "NOT_VERIFIED",
+                               "next_action": "Restore source or explicitly ignore generated test outputs; gates mutated the source tree",
+                               "reason": "source fingerprint changed while verification gates were running",
+                               "attempt": attempt, "snapshot": snapshot,
+                               "gate_source_fingerprint": pre_gate_snapshot["fingerprint"],
+                               "failed_required_gates": [g["id"] for g in gates if g.get("required") and g["status"] != "PASS"]})
     packet = review_packet(contract, snapshot, gates, attempt)
     save_json(folder / "review_packet.json", packet)
     req_failures = [g for g in gates if g.get("required") and g["status"] != "PASS"]
@@ -189,20 +208,26 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
             raise ValueError("invalid reviewer verdict")
         if response.get("reviewed_fingerprint") != snapshot["fingerprint"]:
             raise ValueError("reviewer reviewed wrong snapshot fingerprint")
+        if response.get("reviewed_contract_hash") != packet["contract_hash"]:
+            raise ValueError("reviewer reviewed wrong contract hash")
         if not isinstance(response.get("findings"), list) or not isinstance(response.get("next_action"), str):
             raise ValueError("reviewer must supply findings array and next_action")
         if work_snapshot(repo)["fingerprint"] != snapshot["fingerprint"]:
             raise ValueError("repository changed while reviewer was running")
-        outcome = response["verdict"]
+        reviewer_verdict = response["verdict"]
+        outcome = reviewer_verdict
         if req_failures and outcome == "PASS":
             outcome = "BLOCKED" if any(g["status"] == "BLOCKED" for g in req_failures) else "REWORK"
             response["findings"].append("Reviewer PASS rejected: required gates lack passing evidence")
-        response.update({"verdict": outcome, "attempt": attempt, "snapshot": snapshot,
+        response.update({"verdict": outcome, "reviewer_verdict": reviewer_verdict,
+                         "attempt": attempt, "snapshot": snapshot,
+                         "gate_source_fingerprint": pre_gate_snapshot["fingerprint"],
                          "failed_required_gates": [g["id"] for g in req_failures]})
         return record(folder, response)
     except (OSError, ValueError, json.JSONDecodeError) as e:
         return record(folder, {"verdict": "NOT_VERIFIED", "next_action": "Fix invalid or stale review evidence",
-                               "reason": str(e), "attempt": attempt, "snapshot": snapshot})
+                               "reason": str(e), "attempt": attempt, "snapshot": snapshot,
+                               "reviewer_process": rv, "gate_source_fingerprint": pre_gate_snapshot["fingerprint"]})
 
 
 def record(folder: Path, outcome: dict) -> dict:
@@ -228,21 +253,68 @@ def cycle(args: argparse.Namespace) -> int:
     max_attempts = contract.get("budgets", {}).get("max_attempts", 3) if executor else 1
     deadline = time.monotonic() + contract.get("budgets", {}).get("max_total_seconds", 900)
     outcome = None
+    final_decision = None
     for attempt in range(1, max_attempts + 1):
         if time.monotonic() >= deadline:
             break
         outcome = attempt_cycle(repo, contract, attempt, executor, reviewer, deadline)
-        print(f"Attempt {attempt}/{max_attempts}: {outcome['verdict']} | {outcome.get('next_action','')}")
-        if outcome["verdict"] != "REWORK" or not executor:
+        attempt_folder = repo / ".ai-native" / "runs" / contract["task_id"] / f"attempt-{attempt:02}"
+        try:
+            gate_record = load_json(attempt_folder / "gates.json")
+        except (OSError, ValueError):
+            gate_record = {}
+        current_fingerprint = outcome.get("snapshot", {}).get("fingerprint")
+        if not current_fingerprint:
+            current_fingerprint = work_snapshot(repo)["fingerprint"]
+        executor_result = outcome.get("executor", {})
+        reviewer_process = outcome.get("reviewer_process", {})
+        reviewer_verdict = outcome.get("reviewer_verdict")
+        if reviewer_verdict is None and outcome.get("reviewed_fingerprint"):
+            reviewer_verdict = outcome.get("verdict")
+        control_state = {
+            "schema_version": 1, "task_status": outcome.get("verdict", "NOT_VERIFIED"),
+            "attempt": attempt, "max_attempts": max_attempts,
+            "deadline_exceeded": time.monotonic() >= deadline,
+            "executor_configured": bool(executor),
+            "executor_status": executor_result.get("status", "PASS"),
+            "reviewer_configured": bool(reviewer),
+            "reviewer_process_status": reviewer_process.get("status", "NOT_RUN"),
+            "reviewer_verdict": reviewer_verdict,
+            "reviewer_independent": bool(reviewer) and (not executor or reviewer != executor),
+            "current_fingerprint": current_fingerprint,
+            "reviewed_fingerprint": outcome.get("reviewed_fingerprint"),
+            "contract_hash": canonical_hash(contract),
+            "reviewed_contract_hash": outcome.get("reviewed_contract_hash"),
+            "gates": gate_record.get("gates", []),
+            "gate_source_fingerprint": gate_record.get("source_fingerprint", outcome.get("gate_source_fingerprint"))
+        }
+        final_decision = decide_cycle(control_state)
+        outcome["control_plane_decision"] = final_decision
+        save_json(attempt_folder / "verdict.json", outcome)
+        save_json(attempt_folder.parent / "latest.json", outcome)
+        print(f"Attempt {attempt}/{max_attempts}: {outcome['verdict']} | control={final_decision['action']}")
+        if final_decision["action"] != "RETRY_EXECUTOR":
             break
     if outcome is None:
         print("BLOCKED: budget expired before first attempt")
         return 3
-    if outcome["verdict"] == "REWORK" and max_attempts > 1 and attempt == max_attempts:
-        print("Retry cap reached; manual diagnosis or Architect escalation required.")
+    if final_decision and final_decision["action"] == "ESCALATE_RETRY_LIMIT":
+        print("Retry cap reached; deterministic control plane requires diagnosis or Architect escalation.")
+    print("Control-plane decision:", final_decision["action"] if final_decision else "UNAVAILABLE")
     print("Evidence:", repo / ".ai-native" / "runs" / contract["task_id"] / "latest.json")
-    return {"PASS": 0, "REWORK": 2, "BLOCKED": 3, "NOT_VERIFIED": 4}[outcome["verdict"]]
-
+    return {
+        "TASK_VERIFIED": 0,
+        "RETRY_EXECUTOR": 2,
+        "ESCALATE_RETRY_LIMIT": 2,
+        "ESCALATE_NO_EXECUTOR": 2,
+        "WAIT_EXTERNAL": 3,
+        "ESCALATE_BUDGET": 3,
+        "CONFIGURE_REVIEWER": 4,
+        "REVIEW_REQUIRED": 4,
+        "STOP_NOT_VERIFIED": 4,
+        "STOP_INVALID_STATE": 5,
+        "INVALID_STATE": 5,
+    }.get(final_decision["action"] if final_decision else "ESCALATE_BUDGET", 4)
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)

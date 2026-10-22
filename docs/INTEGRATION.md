@@ -9,10 +9,10 @@ Copy `examples/contract.json`, edit `task_id`, `goal`, `acceptance`, `boundaries
 Set `AI_NATIVE_EXECUTOR_CMD` to a working *already authenticated* executor CLI command that implements the contract in `AI_NATIVE_CONTRACT`, reads previous feedback in `AI_NATIVE_FEEDBACK`, and exits 0 when implementation work is complete. Set `AI_NATIVE_REVIEWER_CMD` to a **different read-only** agent invocation. The reviewer must load the exact JSON file in `AI_NATIVE_REVIEW_PACKET`, inspect the actual diff and evidence in the target repo, and write strict JSON at `AI_NATIVE_REVIEW_RESULT`:
 
 ```json
-{"verdict": "PASS", "reviewed_fingerprint": "<value from packet.snapshot.fingerprint>", "findings": [], "next_action": "merge after CI evidence"}
+{"verdict": "PASS", "reviewed_fingerprint": "<value from packet.snapshot.fingerprint>", "reviewed_contract_hash": "<value from packet.contract_hash>", "findings": [], "next_action": "merge after CI evidence"}
 ```
 
-Valid verdicts: `PASS`, `REWORK`, `BLOCKED`, `NOT_VERIFIED`. If required gates fail, `PASS` is automatically downgraded. If no reviewer, stale fingerprint, malformed JSON, or source changed during review: `NOT_VERIFIED`. Use different model/session for independent review, not the writer self-grading. Client-specific Claude/Codex CLI syntax differs by version; verify actual selected model/effort in its logs. This project intentionally does not pretend a named model tier is automatically routed.
+Valid verdicts: `PASS`, `REWORK`, `BLOCKED`, `NOT_VERIFIED`. The deterministic control plane (scripts/control_plane.py) owns retry/stop decisions; the reviewer cannot override failed gates, retry limits, stale fingerprints, or contract-hash mismatches. If required gates fail, `PASS` is automatically downgraded. If no reviewer, stale fingerprint, malformed JSON, or source changed during review: `NOT_VERIFIED`. Use different model/session for independent review, not the writer self-grading. Client-specific Claude/Codex CLI syntax differs by version; verify actual selected model/effort in its logs. This project intentionally does not pretend a named model tier is automatically routed.
 
 Do not run the reviewer with source-editing permissions. A non-mutating source snapshot check detects changes to tracked/untracked files, but cannot substitute for OS read-only permissions or a dedicated worktree.
 

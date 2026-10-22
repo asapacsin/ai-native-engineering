@@ -17,6 +17,7 @@ import sys
 from pathlib import Path
 
 from ai_native import load_json, work_snapshot, validate_contract, save_json
+from control_plane import decide_integration
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
 PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
@@ -204,35 +205,61 @@ def required_evidence_issues(repo: Path, requirements: dict, latest: dict) -> li
 
 
 def eligibility(repo: Path, contract: dict, requirements: dict | None = None) -> list[str]:
-    issues = scope_issues(repo, contract)
-    if issues:
-        return issues
+    scope_problems = scope_issues(repo, contract)
+    issues = list(scope_problems)
+    approval_ok = False
     try:
-        record = load_json(approval_path(repo, contract["task_id"]))
-        if record.get("contract_hash") != digest(contract):
+        approval = load_json(approval_path(repo, contract["task_id"]))
+        approval_ok = (approval.get("contract_hash") == digest(contract)
+                       and approval.get("role") in {"planner", "architect", "owner"})
+        if approval.get("contract_hash") != digest(contract):
             issues.append("contract changed since independent approval")
-        if record.get("role") not in {"planner", "architect", "owner"}:
+        if approval.get("role") not in {"planner", "architect", "owner"}:
             issues.append("invalid approval role")
     except (OSError, ValueError):
         issues.append("missing independent task approval")
     snapshot = work_snapshot(repo)
     if snapshot["dirty"]:
         issues.append("worktree must be clean before merge eligibility")
+    review_pass = review_current = contract_current = required_gates_pass = requirements_pass = False
     try:
         latest = load_json(repo / ".ai-native" / "runs" / contract["task_id"] / "latest.json")
-        if latest.get("verdict") != "PASS":
+        review_pass = latest.get("verdict") == "PASS"
+        review_current = latest.get("snapshot", {}).get("fingerprint") == snapshot["fingerprint"]
+        contract_current = latest.get("contract_hash") == digest(contract)
+        required_gates_pass = not latest.get("failed_required_gates")
+        if not review_pass:
             issues.append("independent reviewer did not PASS")
-        if latest.get("snapshot", {}).get("fingerprint") != snapshot["fingerprint"]:
+        if not review_current:
             issues.append("verification or review is stale relative to current tree")
-        if latest.get("contract_hash") != digest(contract):
+        if not contract_current:
             issues.append("verification not bound to approved contract")
-        if latest.get("failed_required_gates"):
+        if not required_gates_pass:
             issues.append("some required gates failed")
         latest["task_id"] = contract["task_id"]
         if requirements is not None:
-            issues.extend(required_evidence_issues(repo, requirements, latest))
+            req_problems = required_evidence_issues(repo, requirements, latest)
+            issues.extend(req_problems)
+            requirements_pass = not req_problems
+        else:
+            requirements_pass = True
     except (OSError, ValueError):
         issues.append("no current end-state verification available")
+    control = decide_integration({
+        "contract_approved": approval_ok,
+        "scope_clean": not scope_problems,
+        "review_pass": review_pass,
+        "review_current": review_current,
+        "contract_current": contract_current,
+        "required_gates_pass": required_gates_pass,
+        "requirements_pass": requirements_pass,
+        "source_clean": not snapshot["dirty"],
+        "frontier_complete": True,
+        "human_clear": True,
+        "external_clear": True
+    })
+    if control["action"] != "READY_TO_MERGE" and not issues:
+        issues.extend(control["reasons"])
     return issues
 
 

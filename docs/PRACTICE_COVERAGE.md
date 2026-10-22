@@ -91,3 +91,10 @@ Remaining material gaps: real required GitHub branch rules, immutable/protected 
 Do not claim “all practices included” unless every row is CORE or a **tested ADAPTER** with a specific source-project integration and evidence; cross-client selection, CI and human/device/GPU evidence have actually been exercised on the targeted runtimes; unresolved exceptions are explicitly accepted. Local Python tests alone cannot certify the claim.
 
 **Current result:** inventory complete for the reviewed files/known decisions; implementation migration **NOT_COMPLETE**. This is an engineering audit, not evidence of production integration.
+
+
+## Deterministic core update — 2026-10-22
+
+The shared repository now includes a pure decision engine at scripts/control_plane.py and behavioral tests at tests/test_control_plane.py. The engine itself has no LLM calls, subprocesses, network access or clock reads. ai_native.py delegates bounded retry/stop decisions to it; frontier.py delegates dependency scheduling and human handoff decisions; governance.py delegates final merge-eligibility logic. Review results now bind to both the source fingerprint and contract hash, and verification gate runs bind to the source fingerprint captured before tests.
+
+The pre-tool scope guard at scripts/pre_tool_guard.py is also present for Claude Code. It is deterministic but only covers its configured hook boundary and listed tool types; it is not an OS sandbox. The current core is more deterministic, but complete source-project parity is still NOT_VERIFIED until the test suite runs in CI and the real project adapters, required branch rules, model sessions, device/GPU/visual evidence and recovery workflows are exercised.

@@ -13,6 +13,10 @@ python3 -m unittest discover -s tests -v
 python3 scripts/ai_native.py validate --contract examples/contract.json
 ```
 
+## Deterministic control plane
+
+scripts/control_plane.py is a pure policy engine: it consumes observed task/gate/review/frontier state and emits a hashed decision such as RETRY_EXECUTOR, WAIT_EXTERNAL, CONFIGURE_REVIEWER, TASK_VERIFIED, CONTINUE_FRONTIER, HUMAN_HANDOFF, or READY_TO_MERGE. It performs no LLM calls, network requests, shell commands, or clock reads. ai_native.py, frontier.py, and governance.py call this engine instead of independently guessing whether to retry, continue, stop, or merge. Every merge precondition fails closed.
+
 ## Enforced governance and autonomous frontier
 
 The local tooling now includes contract-hash approval, scoped paths, exact-tip merge eligibility and independent requirement-scope checks (`scripts/governance.py`), and a dependency-aware autonomous frontier with deferred human tasks and a two-clean-pass human gate (`scripts/frontier.py`). **Neither component is an installed GitHub branch rule or an automatically running multi-agent service.**
@@ -34,10 +38,11 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md), [pre-tool guard guide](docs/PR
 
 | Path | Role |
 | --- | --- |
-| `scripts/ai_native.py` | executable bounded orchestration, gate evidence, commit + dirty-source fingerprint |
+| `scripts/ai_native.py` | bounded orchestration wired to deterministic retry/stop policy; source and contract fingerprints |
 | `scripts/pre_tool_guard.py` | opt-in pre-action path policy and dangerous-shell-command checks |
 | `scripts/codex_bridge.py` | optional external Codex executor/reviewer subprocess adapters; live integration not certified |
-| `scripts/governance.py` | procedural approvals, scope checking, and exact-tip eligibility; not GitHub branch protection |
+| `scripts/control_plane.py` | pure deterministic cycle, frontier and merge decisions; decision hash and fail-closed rules |
+| `scripts/governance.py` | procedural approvals and scope checks delegated to deterministic merge policy; not GitHub branch protection |
 | `scripts/frontier.py` | manually defined dependency frontier, blocker propagation, human handoff gate; no automatic source discovery |
 | `docs/PRACTICE_COVERAGE.md` | verified coverage audit and remaining migration roadmap |
 | `docs/PRE_TOOL_GUARD.md` | opt-in pre-tool guard setup, test procedure, and limitations |
