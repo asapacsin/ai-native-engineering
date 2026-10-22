@@ -4,6 +4,8 @@
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
+The optional Claude Code pre-tool guard (`scripts/pre_tool_guard.py`) can block out-of-scope file edits and common destructive shell commands **before** execution. It is opt-in and defense-in-depth, not a full OS sandbox; see the [pre-tool guard guide](docs/PRE_TOOL_GUARD.md).
+
 ## Verify this repository
 
 ```bash
@@ -26,21 +28,24 @@ See **[operational enforcement commands](docs/ENFORCEMENT.md)** and the [practic
 
 Default: **low-cost Executor → deterministic end-state checks → stronger independent Reviewer → targeted Executor retry**. Escalate to Architect only when important uncertainty warrants it. `max_attempts` and `max_total_seconds` prevent runaway spending.
 
-See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md) and [exact integration instructions](docs/INTEGRATION.md).
+See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md), [pre-tool guard guide](docs/PRE_TOOL_GUARD.md), and [exact integration instructions](docs/INTEGRATION.md).
 
 ## File map
 
 | Path | Role |
 | --- | --- |
 | `scripts/ai_native.py` | executable bounded orchestration, gate evidence, commit + dirty-source fingerprint |
+| `scripts/pre_tool_guard.py` | opt-in pre-action path policy and dangerous-shell-command checks |
 | `scripts/codex_bridge.py` | optional external Codex executor/reviewer subprocess adapters; live integration not certified |
 | `scripts/governance.py` | procedural approvals, scope checking, and exact-tip eligibility; not GitHub branch protection |
 | `scripts/frontier.py` | manually defined dependency frontier, blocker propagation, human handoff gate; no automatic source discovery |
 | `docs/PRACTICE_COVERAGE.md` | verified coverage audit and remaining migration roadmap |
+| `docs/PRE_TOOL_GUARD.md` | opt-in pre-tool guard setup, test procedure, and limitations |
 | `.claude/hooks/ai-native-stop.py` | opt-in end-state Stop hook, guards recursive loops |
+| `.claude/settings.json` | PreToolUse and Stop hook registrations; pre-tool guard is disabled unless explicitly enabled |
 | `examples/contract.json` | sample spec/acceptance/budget/CLI gate contract |
 | `adapters/aurel.json`, `adapters/android.json` | source-specific gate examples; not a claim those apps were tested here |
-| `tests/` | controller behavioral tests including false PASS and stale review rejection |
+| `tests/` | controller behavioral tests, including pre-tool policy, false PASS and stale review rejection |
 | `.github/workflows/ci.yml` | CI for the portable controller |
 | `scripts/publish.ps1` | obsolete bootstrap helper, deliberately refuses to overwrite this existing repository |
 
