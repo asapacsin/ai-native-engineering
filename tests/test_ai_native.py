@@ -34,7 +34,7 @@ class AiNativeTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def write_reviewer(self, verdict="PASS", wrong_fingerprint=False, mutate=False):
+    def write_reviewer(self, verdict="PASS", wrong_fingerprint=False, mutate=False, wrong_contract_hash=False):
         self.reviewer_path.write_text(
             "import os,json,pathlib\n"
             "packet=json.loads(pathlib.Path(os.environ['AI_NATIVE_REVIEW_PACKET']).read_text())\n"
@@ -43,7 +43,7 @@ class AiNativeTests(unittest.TestCase):
             + f"'verdict':'{verdict}',"
             + ("'reviewed_fingerprint':'wrong'," if wrong_fingerprint else
                "'reviewed_fingerprint':packet['snapshot']['fingerprint'],")
-            + "'reviewed_contract_hash':packet['contract_hash'],"
+            + ("'reviewed_contract_hash':'wrong'," if wrong_contract_hash else "'reviewed_contract_hash':packet['contract_hash'],")
             + "'findings':[],'next_action':'done'}))\n", encoding="utf-8")
 
     def call(self, with_reviewer=True):
@@ -73,6 +73,7 @@ class AiNativeTests(unittest.TestCase):
         code, outcome = self.call()
         self.assertEqual(code, 0)
         self.assertEqual(outcome["verdict"], "PASS")
+        self.assertEqual(outcome["control_plane_decision"]["action"], "TASK_VERIFIED")
         self.assertEqual(len(outcome["snapshot"]["commit"]), 40)
 
     def test_no_reviewer_is_not_verified(self):
@@ -95,6 +96,12 @@ class AiNativeTests(unittest.TestCase):
 
     def test_wrong_fingerprint_not_verified(self):
         self.write_reviewer(wrong_fingerprint=True)
+        code, outcome = self.call()
+        self.assertEqual(code, 4)
+        self.assertEqual(outcome["verdict"], "NOT_VERIFIED")
+
+    def test_wrong_contract_hash_not_verified(self):
+        self.write_reviewer(wrong_contract_hash=True)
         code, outcome = self.call()
         self.assertEqual(code, 4)
         self.assertEqual(outcome["verdict"], "NOT_VERIFIED")
