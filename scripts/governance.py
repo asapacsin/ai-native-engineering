@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from ai_native import load_json, work_snapshot, validate_contract, save_json
-from control_plane import decide_integration
+from control_plane import decide_integration, verify_decision
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
 PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
@@ -224,7 +224,12 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None) ->
     review_pass = review_current = contract_current = required_gates_pass = requirements_pass = False
     try:
         latest = load_json(repo / ".ai-native" / "runs" / contract["task_id"] / "latest.json")
-        review_pass = latest.get("verdict") == "PASS"
+        control_decision = latest.get("control_plane_decision", {})
+        deterministic_pass = (control_decision.get("action") == "TASK_VERIFIED"
+                              and verify_decision(control_decision))
+        review_pass = latest.get("verdict") == "PASS" and deterministic_pass
+        if not deterministic_pass:
+            issues.append("deterministic control-plane PASS missing or invalid")
         review_current = latest.get("snapshot", {}).get("fingerprint") == snapshot["fingerprint"]
         contract_current = latest.get("contract_hash") == digest(contract)
         required_gates_pass = not latest.get("failed_required_gates")

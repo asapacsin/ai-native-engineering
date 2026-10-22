@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import ai_native
+import control_plane
 import governance
 
 
@@ -33,12 +34,27 @@ class GovernanceTests(unittest.TestCase):
     def assertVerdict(self, expected):
         packet = self.repo / ".ai-native/runs/task-one/attempt-01"
         packet.mkdir(parents=True, exist_ok=True)
-        ai_native.save_json(packet / "gates.json", {"gates":[{"id":"unit","level":"unit","status":"PASS"}]})
+        snapshot = ai_native.work_snapshot(self.repo)
+        contract_hash = governance.digest(self.contract)
+        ai_native.save_json(packet / "gates.json", {"gates":[{"id":"unit","level":"unit","status":"PASS",
+                                                               "source_fingerprint":snapshot["fingerprint"]}],
+                                                    "source_fingerprint":snapshot["fingerprint"]})
+        decision = control_plane.decide_cycle({
+            "schema_version":1, "task_status":expected, "attempt":1, "max_attempts":3,
+            "deadline_exceeded":False, "executor_configured":False, "executor_status":"PASS",
+            "reviewer_configured":True, "reviewer_process_status":"PASS", "reviewer_verdict":expected,
+            "reviewer_independent":True, "current_fingerprint":snapshot["fingerprint"],
+            "reviewed_fingerprint":snapshot["fingerprint"], "contract_hash":contract_hash,
+            "reviewed_contract_hash":contract_hash,
+            "gates":[{"id":"unit","required":True,"status":"PASS","source_fingerprint":snapshot["fingerprint"]}],
+            "gate_source_fingerprint":snapshot["fingerprint"]
+        })
         ai_native.save_json(self.repo / ".ai-native/runs/task-one/latest.json",
                             {"task_id":"task-one", "attempt":1, "verdict": expected,
-                             "contract_hash":governance.digest(self.contract),
-                             "snapshot":ai_native.work_snapshot(self.repo),
-                             "failed_required_gates":[]})
+                             "contract_hash":contract_hash, "snapshot":snapshot,
+                             "reviewed_fingerprint":snapshot["fingerprint"],
+                             "reviewed_contract_hash":contract_hash,
+                             "failed_required_gates":[], "control_plane_decision":decision})
 
     def test_approval_and_verified_exact_tip_eligible(self):
         governance.approve(self.repo, self.contract, "architect", "architect")

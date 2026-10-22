@@ -52,8 +52,8 @@ def _required_gate_problem(gates: list[dict], source_fingerprint: str, gate_sour
     required = [g for g in gates if g.get("required", True)]
     if not required:
         return "NO_REQUIRED_GATES", ["no_required_gates"]
-    if gate_source_fingerprint and gate_source_fingerprint != source_fingerprint:
-        return "STALE_GATE_EVIDENCE", ["gate_source_fingerprint_mismatch"]
+    if not source_fingerprint or not gate_source_fingerprint or gate_source_fingerprint != source_fingerprint:
+        return "STALE_GATE_EVIDENCE", ["gate_source_fingerprint_missing_or_mismatch"]
     for gate in required:
         gid = gate.get("id", "<missing-id>")
         status = gate.get("status")
@@ -66,6 +66,15 @@ def _required_gate_problem(gates: list[dict], source_fingerprint: str, gate_sour
         if gate.get("source_fingerprint") and gate["source_fingerprint"] != source_fingerprint:
             return "STALE_GATE_EVIDENCE", [f"gate_fingerprint_mismatch:{gid}"]
     return None, []
+
+
+def verify_decision(record: dict) -> bool:
+    """Validate a deterministic decision record's canonical digest."""
+    if not isinstance(record, dict) or not isinstance(record.get("decision_sha256"), str):
+        return False
+    payload = dict(record)
+    claimed = payload.pop("decision_sha256")
+    return HEX64.fullmatch(claimed) is not None and canonical_hash(payload) == claimed
 
 
 def decide_cycle(state: dict) -> dict:
@@ -161,9 +170,20 @@ def _validate_work(work: list[dict]) -> list[str]:
             errors.append(f"dependencies_must_be_list:{ident}")
         if item.get("status") == "PASS" and not item.get("evidence"):
             errors.append(f"pass_without_evidence:{ident}")
+        if item.get("status") == "NOT_APPLICABLE" and not (item.get("evidence") or item.get("reason")):
+            errors.append(f"not_applicable_without_reason_or_evidence:{ident}")
         if item.get("status") == "BLOCKED_EXTERNAL" and not item.get("blocked_by"):
             errors.append(f"blocker_not_named:{ident}")
-    graph = {ident: item.get("depends_on", []) for ident, item in by_id.items()}
+        if item.get("status") == "HUMAN_REQUIRED":
+            if not str(item.get("owner", "")).startswith("HUMAN_"):
+                errors.append(f"human_task_without_human_owner:{ident}")
+            for field in ("automation_blocker", "procedure", "expected_return", "pass_criteria"):
+                if not str(item.get(field, "")).strip():
+                    errors.append(f"human_task_missing_{field}:{ident}")
+            if item.get("owner") == "HUMAN_DECISION" and not item.get("quantified"):
+                errors.append(f"human_decision_not_quantified:{ident}")
+    graph = {ident: (item.get("depends_on", []) if isinstance(item.get("depends_on", []), list) else [])
+             for ident, item in by_id.items()}
     for ident, dependencies in graph.items():
         for dep in dependencies:
             if dep not in by_id:
@@ -207,7 +227,7 @@ def decide_frontier(work: list[dict], clean_passes: int = 0,
         if status == "HUMAN_REQUIRED":
             human.append(item)
             continue
-        deps = [dep for dep in item["depends_on"] if by_id[dep]["status"] != "PASS"]
+        deps = [dep for dep in item["depends_on"] if by_id[dep]["status"] not in TERMINAL_WORK]
         if status == "BLOCKED_EXTERNAL" or deps:
             blocked.append({"id": item["id"], "blocked_by": item.get("blocked_by") or deps})
         elif item["owner"] == "AUTONOMOUS" and status in {"NOT_RUN", "FAIL"}:

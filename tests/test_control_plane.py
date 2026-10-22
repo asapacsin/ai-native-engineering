@@ -76,7 +76,9 @@ class ControlPlaneTests(unittest.TestCase):
             {"id":"gpu", "owner":"AUTONOMOUS","status":"BLOCKED_EXTERNAL","blocked_by":"GPU unavailable","depends_on":["passed"]},
             {"id":"neural", "owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":["gpu"]},
             {"id":"docs", "owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":["passed"]},
-            {"id":"human", "owner":"HUMAN_PHYSICAL","status":"HUMAN_REQUIRED","depends_on":["docs"]}
+            {"id":"human", "owner":"HUMAN_PHYSICAL","status":"HUMAN_REQUIRED","depends_on":["docs"],
+             "automation_blocker":"subjective perception", "procedure":"run a human playtest",
+             "expected_return":"notes and build id", "pass_criteria":"the flow is usable"}
         ]
 
     def test_independent_work_continues_around_gpu_blocker(self):
@@ -106,6 +108,28 @@ class ControlPlaneTests(unittest.TestCase):
                 {"id":"b","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":["a"]}]
         self.assertEqual(cp.decide_frontier(work)["action"], "INVALID_STATE")
 
+    def test_missing_gate_fingerprint_fails_closed(self):
+        state = self.cycle_state(gate_source_fingerprint=None)
+        self.assertEqual(cp.decide_cycle(state)["action"], "STOP_NOT_VERIFIED")
+
+    def test_malformed_dependency_type_fails_closed(self):
+        work = [{"id":"a","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":None}]
+        self.assertEqual(cp.decide_frontier(work)["action"], "INVALID_STATE")
+
+    def test_human_task_requires_operational_handoff_fields(self):
+        work = [{"id":"human","owner":"HUMAN_PHYSICAL","status":"HUMAN_REQUIRED","depends_on":[],
+                 "automation_blocker":"subjective","procedure":"play test","expected_return":"notes","pass_criteria":"usable"}]
+        self.assertEqual(cp.decide_frontier(work)["action"], "DISCOVERY_REQUIRED")
+        del work[0]["procedure"]
+        self.assertEqual(cp.decide_frontier(work)["action"], "INVALID_STATE")
+
+    def test_not_applicable_dependency_is_terminal_only_with_reason(self):
+        work = [{"id":"skip","owner":"AUTONOMOUS","status":"NOT_APPLICABLE","reason":"not needed","depends_on":[]},
+                {"id":"next","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":["skip"]}]
+        result = cp.decide_frontier(work)
+        self.assertEqual(result["action"], "CONTINUE_FRONTIER")
+        self.assertEqual([x["id"] for x in result["frontier"]["autonomous"]], ["next"])
+
     def test_integration_requires_every_precondition(self):
         state = {k: True for k in ("contract_approved","scope_clean","review_pass","review_current",
                   "contract_current","required_gates_pass","requirements_pass","source_clean",
@@ -113,6 +137,15 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertEqual(cp.decide_integration(state)["action"], "READY_TO_MERGE")
         state["source_clean"] = False
         self.assertEqual(cp.decide_integration(state)["action"], "NOT_ELIGIBLE")
+
+    def test_decision_digest_detects_tampering(self):
+        decision = cp.decide_integration({k: True for k in (
+            "contract_approved","scope_clean","review_pass","review_current","contract_current",
+            "required_gates_pass","requirements_pass","source_clean","frontier_complete",
+            "human_clear","external_clear")})
+        self.assertTrue(cp.verify_decision(decision))
+        decision["action"] = "NOT_ELIGIBLE"
+        self.assertFalse(cp.verify_decision(decision))
 
     def test_integration_fails_closed_on_missing_precondition(self):
         self.assertEqual(cp.decide_integration({})["action"], "INVALID_STATE")
