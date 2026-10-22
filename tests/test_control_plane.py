@@ -138,6 +138,22 @@ class ControlPlaneTests(unittest.TestCase):
         state["source_clean"] = False
         self.assertEqual(cp.decide_integration(state)["action"], "NOT_ELIGIBLE")
 
+    def test_non_string_dependency_id_fails_closed(self):
+        work = [{"id":"a","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":[{"bad":"id"}]}]
+        self.assertEqual(cp.decide_frontier(work)["action"], "INVALID_STATE")
+
+    def test_priority_must_be_numeric(self):
+        work = [{"id":"a","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":[],"priority":"urgent"}]
+        self.assertEqual(cp.decide_frontier(work)["action"], "INVALID_STATE")
+
+    def test_invalid_clean_pass_count_fails_closed(self):
+        work = [{"id":"a","owner":"AUTONOMOUS","status":"NOT_RUN","depends_on":[]}]
+        self.assertEqual(cp.decide_frontier(work, clean_passes="2")["action"], "INVALID_STATE")
+
+    def test_gate_id_and_required_flag_are_validated(self):
+        state = self.cycle_state(gates=[{"status":"PASS","required":"yes"}])
+        self.assertEqual(cp.decide_cycle(state)["action"], "INVALID_STATE")
+
     def test_decision_digest_detects_tampering(self):
         decision = cp.decide_integration({k: True for k in (
             "contract_approved","scope_clean","review_pass","review_current","contract_current",

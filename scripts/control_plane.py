@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -92,6 +93,8 @@ def decide_cycle(state: dict) -> dict:
     task_status = state.get("task_status")
     if task_status not in {"PASS", "REWORK", "BLOCKED", "NOT_VERIFIED"}:
         return _decision("INVALID_STATE", ["invalid_task_status"])
+    if not isinstance(state.get("current_fingerprint", ""), str):
+        return _decision("INVALID_STATE", ["current_fingerprint_must_be_string"])
     if state["deadline_exceeded"]:
         return _decision("ESCALATE_BUDGET", ["wall_clock_budget_exhausted"],
                          attempt=state["attempt"], max_attempts=state["max_attempts"])
@@ -103,8 +106,13 @@ def decide_cycle(state: dict) -> dict:
         return _retry(state, "executor_failed")
 
     gates = state.get("gates")
-    if not isinstance(gates, list) or any(not isinstance(g, dict) or g.get("status") not in GATE_STATUSES for g in gates):
-        return _decision("INVALID_STATE", ["gates_must_have_valid_status"])
+    if not isinstance(gates, list) or any(
+        not isinstance(g, dict) or g.get("status") not in GATE_STATUSES
+        or not isinstance(g.get("id"), str) or not g.get("id")
+        or not isinstance(g.get("required", True), bool)
+        for g in gates
+    ):
+        return _decision("INVALID_STATE", ["gates_must_have_valid_id_status_and_required_flag"])
     source_fingerprint = state.get("current_fingerprint", "")
     gate_problem, gate_reasons = _required_gate_problem(
         gates, source_fingerprint, state.get("gate_source_fingerprint"))
@@ -168,7 +176,12 @@ def _validate_work(work: list[dict]) -> list[str]:
             errors.append(f"invalid_owner_or_status:{ident}")
         if not isinstance(item.get("depends_on"), list):
             errors.append(f"dependencies_must_be_list:{ident}")
-        if item.get("status") == "PASS" and not item.get("evidence"):
+        elif any(not isinstance(dep, str) or not dep for dep in item["depends_on"]):
+            errors.append(f"invalid_dependency_id:{ident}")
+        priority = item.get("priority", 100)
+        if isinstance(priority, bool) or not isinstance(priority, (int, float)) or not math.isfinite(priority):
+            errors.append(f"priority_must_be_finite_number:{ident}")
+        if item.get("status") == "PASS" and (not isinstance(item.get("evidence"), list) or not item["evidence"]):
             errors.append(f"pass_without_evidence:{ident}")
         if item.get("status") == "NOT_APPLICABLE" and not (item.get("evidence") or item.get("reason")):
             errors.append(f"not_applicable_without_reason_or_evidence:{ident}")
@@ -182,11 +195,14 @@ def _validate_work(work: list[dict]) -> list[str]:
                     errors.append(f"human_task_missing_{field}:{ident}")
             if item.get("owner") == "HUMAN_DECISION" and not item.get("quantified"):
                 errors.append(f"human_decision_not_quantified:{ident}")
-    graph = {ident: (item.get("depends_on", []) if isinstance(item.get("depends_on", []), list) else [])
+    graph = {ident: ([dep for dep in item.get("depends_on", []) if isinstance(dep, str)]
+                       if isinstance(item.get("depends_on", []), list) else [])
              for ident, item in by_id.items()}
     for ident, dependencies in graph.items():
         for dep in dependencies:
-            if dep not in by_id:
+            if not isinstance(dep, str) or not dep:
+                errors.append(f"invalid_dependency_id:{ident}")
+            elif dep not in by_id:
                 errors.append(f"unknown_dependency:{ident}:{dep}")
     active, done = set(), set()
 
@@ -214,6 +230,12 @@ def decide_frontier(work: list[dict], clean_passes: int = 0,
     """Compute eligible work and the deterministic continue/handoff/stop decision."""
     if not isinstance(work, list):
         return _decision("INVALID_STATE", ["work_must_be_a_list"])
+    if isinstance(clean_passes, bool) or not isinstance(clean_passes, int) or clean_passes < 0:
+        return _decision("INVALID_STATE", ["clean_passes_must_be_nonnegative_integer"])
+    if state_fingerprint is not None and not isinstance(state_fingerprint, str):
+        return _decision("INVALID_STATE", ["state_fingerprint_must_be_string"])
+    if registry_fingerprint is not None and not isinstance(registry_fingerprint, str):
+        return _decision("INVALID_STATE", ["registry_fingerprint_must_be_string"])
     errors = _validate_work(work)
     if errors:
         return _decision("INVALID_STATE", errors)
