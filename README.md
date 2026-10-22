@@ -21,7 +21,7 @@ scripts/control_plane.py is a pure policy engine: it consumes observed task/gate
 
 The local tooling now includes contract-hash approval, scoped paths, exact-tip merge eligibility and independent requirement-scope checks (`scripts/governance.py`), and a dependency-aware autonomous frontier with deferred human tasks and a two-clean-pass human gate (`scripts/frontier.py`). **Neither component is an installed GitHub branch rule or an automatically running multi-agent service.**
 
-See **[operational enforcement commands](docs/ENFORCEMENT.md)** and the [practice coverage audit](docs/PRACTICE_COVERAGE.md) for the remaining gaps.
+See **[community-reviewed deterministic enforcement patterns](docs/COMMUNITY_DETERMINISTIC_PATTERNS.md)** for evidence-based hook, external-loop, state-machine, and GitHub ruleset designs; [operational enforcement commands](docs/ENFORCEMENT.md) and the [practice coverage audit](docs/PRACTICE_COVERAGE.md) describe implementation status and gaps.
 
 ## Drive a project
 
