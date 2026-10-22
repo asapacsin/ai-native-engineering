@@ -52,17 +52,39 @@ def _valid_patterns(contract: dict) -> str | None:
             if not isinstance(raw, str) or not raw.strip():
                 return f"{field} contains an empty or non-string pattern"
             pattern = _normalise(raw)
-            if pattern.startswith("/") or Path(pattern).is_absolute() or ".." in PurePosixPath(pattern).parts:
+            if (
+                pattern.startswith("/")
+                or re.match(r"^[A-Za-z]:/", pattern)
+                or Path(pattern).is_absolute()
+                or ".." in PurePosixPath(pattern).parts
+            ):
                 return f"unsafe path pattern in {field}: {raw}"
     return None
 
 
 def _matches(relative_path: str, pattern: str) -> bool:
-    pattern = _normalise(pattern)
-    if pattern.endswith("/**"):
-        base = pattern[:-3].rstrip("/")
-        return relative_path == base or relative_path.startswith(base + "/")
-    return fnmatch.fnmatchcase(relative_path, pattern)
+    """Match project-relative globs: * stays within one path segment; ** recurses."""
+    path_parts = PurePosixPath(_normalise(relative_path)).parts
+    pattern_parts = PurePosixPath(_normalise(pattern)).parts
+
+    def match_from(path_index: int, pattern_index: int) -> bool:
+        if pattern_index == len(pattern_parts):
+            return path_index == len(path_parts)
+        token = pattern_parts[pattern_index]
+        if token == "**":
+            if pattern_index == len(pattern_parts) - 1:
+                return True
+            return any(
+                match_from(next_path_index, pattern_index + 1)
+                for next_path_index in range(path_index, len(path_parts) + 1)
+            )
+        return (
+            path_index < len(path_parts)
+            and fnmatch.fnmatchcase(path_parts[path_index], token)
+            and match_from(path_index + 1, pattern_index + 1)
+        )
+
+    return match_from(0, 0)
 
 
 def _is_protected(relative_path: str) -> bool:
@@ -137,6 +159,9 @@ def main() -> int:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError) as exc:
         print(f"AI-native pre-tool guard blocked malformed hook input: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(event, dict):
+        print("AI-native pre-tool guard requires a JSON object hook event; blocked.", file=sys.stderr)
         return 2
 
     contract_path = os.environ.get("AI_NATIVE_CONTRACT_PATH")
