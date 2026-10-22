@@ -42,6 +42,16 @@ class PreToolGuardTests(unittest.TestCase):
         reason = self.guard("Edit", {"file_path": "../outside.py"})
         self.assertIn("outside the project", reason)
 
+    def test_single_star_does_not_cross_directory_boundary(self):
+        self.contract["approved_paths"] = ["src/*.py"]
+        self.assertIsNone(self.guard("Edit", {"file_path": "src/main.py"}))
+        reason = self.guard("Edit", {"file_path": "src/sub/main.py"})
+        self.assertIn("outside approved_paths", reason)
+
+    def test_double_star_recurses_across_directories(self):
+        self.contract["approved_paths"] = ["src/**/*.py"]
+        self.assertIsNone(self.guard("Edit", {"file_path": "src/sub/main.py"}))
+
     def test_blocks_force_reset(self):
         reason = self.guard("Bash", {"command": "git reset --hard HEAD"})
         self.assertIn("discard uncommitted work", reason)
