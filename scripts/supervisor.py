@@ -93,8 +93,20 @@ def acquire_lock(repo: Path) -> tuple[int, Path]:
     try:
         fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError as exc:
-        raise RuntimeError("supervisor lock exists; do not run concurrent drivers. "
-                           "After confirming the previous process stopped, remove " + str(path)) from exc
+        try:
+            pid = int(path.read_text(encoding="utf-8").strip())
+            if pid <= 0:
+                raise ValueError("invalid lock owner")
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            # Only an absent process owner can be safely reclaimed automatically.
+            path.unlink()
+            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except (OSError, ValueError) as error:
+            raise RuntimeError("existing supervisor lock cannot be safely reclaimed: "
+                               + str(path)) from error
+        else:
+            raise RuntimeError("supervisor lock owned by a live process: " + str(path)) from exc
     os.write(fd, str(os.getpid()).encode())
     return fd, path
 
