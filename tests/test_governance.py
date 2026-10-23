@@ -162,24 +162,87 @@ class GovernanceTests(unittest.TestCase):
         # A reviewed feature can merge before unrelated backlog tasks finish.
         self.assertEqual(governance.eligibility(self.repo, self.contract), [])
 
-    def test_evidence_backed_release_registry_can_pass(self):
+    def make_release_evidence(self, task_id, source_fingerprint):
         import hashlib
+        contract = {**self.contract, "task_id": task_id}
+        contract_hash = governance.digest(contract)
+        decision = control_plane.decide_cycle({
+            "schema_version": 1, "task_status": "PASS", "attempt": 1, "max_attempts": 3,
+            "deadline_exceeded": False, "executor_configured": False, "executor_status": "PASS",
+            "reviewer_configured": True, "reviewer_process_status": "PASS", "reviewer_verdict": "PASS",
+            "reviewer_independent": True, "current_fingerprint": source_fingerprint,
+            "reviewed_fingerprint": source_fingerprint, "contract_hash": contract_hash,
+            "reviewed_contract_hash": contract_hash,
+            "gates": [{"id": "unit", "required": True, "status": "PASS",
+                       "source_fingerprint": source_fingerprint}],
+            "gate_source_fingerprint": source_fingerprint
+        })
+        report_path = self.repo / ".ai-native/runs" / task_id / "latest.json"
+        report = {
+            "task_id": task_id, "attempt": 1, "verdict": "PASS",
+            "contract_hash": contract_hash,
+            "snapshot": {"fingerprint": source_fingerprint},
+            "reviewed_fingerprint": source_fingerprint,
+            "reviewed_contract_hash": contract_hash,
+            "failed_required_gates": [],
+            "control_plane_decision": decision
+        }
+        ai_native.save_json(report_path, report)
+        proof = {
+            "status": "PASS", "task_id": task_id,
+            "source_fingerprint": source_fingerprint,
+            "contract_hash": contract_hash,
+            "report_path": ".ai-native/runs/" + task_id + "/latest.json",
+            "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
+            "producer": "test-fixture"
+        }
+        evidence_path = self.repo / ".ai-native/evidence" / (task_id + ".json")
+        ai_native.save_json(evidence_path, proof)
+        return {
+            "path": ".ai-native/evidence/" + task_id + ".json",
+            "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+        }, report_path, evidence_path
+
+    def test_evidence_backed_release_registry_can_pass(self):
         governance.approve(self.repo, self.contract, "planner", "planner")
         self.assertVerdict("PASS")
-        snap = ai_native.work_snapshot(self.repo)["fingerprint"]
-        evidence_path = self.repo / ".ai-native/evidence/done.json"
-        evidence_path.parent.mkdir(parents=True, exist_ok=True)
-        evidence_path.write_text(json.dumps({"status": "PASS", "source_fingerprint": snap}), encoding="utf-8")
-        evidence = {"path": ".ai-native/evidence/done.json",
-                    "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()}
+        snap = ai_native.work_snapshot(self.repo)
+        evidence, _, evidence_path = self.make_release_evidence("done", snap["fingerprint"])
         registry = {"schema_version": 1, "work": [
             {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
              "depends_on":[], "action":"Verified", "evidence":[evidence]}
         ]}
         self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
         evidence_path.write_text("{}", encoding="utf-8")
-        self.assertTrue(any("checksum" in p for p in
-                            governance.eligibility(self.repo, self.contract, release_registry=registry)))
+        self.assertTrue(any("checksum" in p for
+                            p in governance.eligibility(self.repo, self.contract, release_registry=registry)))
+
+    def test_release_rejects_evidence_reused_for_another_task(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        snap = ai_native.work_snapshot(self.repo)
+        evidence, _, _ = self.make_release_evidence("other-task", snap["fingerprint"])
+        registry = {"schema_version": 1, "work": [
+            {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "depends_on":[], "action":"Verified", "evidence":[evidence]}
+        ]}
+        self.assertTrue(any("task, contract" in p for
+                            p in governance.eligibility(self.repo, self.contract, release_registry=registry)))
+
+    def test_release_rejects_tampered_review_report(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        snap = ai_native.work_snapshot(self.repo)
+        evidence, report_path, _ = self.make_release_evidence("done", snap["fingerprint"])
+        registry = {"schema_version": 1, "work": [
+            {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "depends_on":[], "action":"Verified", "evidence":[evidence]}
+        ]}
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["verdict"] = "REWORK"
+        ai_native.save_json(report_path, report)
+        self.assertTrue(any("report checksum" in p for
+                            p in governance.eligibility(self.repo, self.contract, release_registry=registry)))
 
     def test_release_rejects_unverified_evidence_label(self):
         governance.approve(self.repo, self.contract, "planner", "planner")
