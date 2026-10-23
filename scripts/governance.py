@@ -253,11 +253,13 @@ def release_evidence_issues(repo: Path, registry: dict, source_fingerprint: str)
                 problems.append(identifier + ": evidence artifact must be a JSON object")
                 continue
             contract_hash = record.get("contract_hash")
-            if (record.get("task_id") != identifier
+            registry_hash = item.get("contract_hash")
+            if (not isinstance(registry_hash, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", registry_hash)
+                    or contract_hash != registry_hash
+                    or record.get("task_id") != identifier
                     or record.get("source_fingerprint") != source_fingerprint
-                    or record.get("status") not in {"PASS", "VERIFIED"}
-                    or not isinstance(contract_hash, str)
-                    or not re.fullmatch(r"[0-9a-f]{64}", contract_hash)):
+                    or record.get("status") not in {"PASS", "VERIFIED"}):
                 problems.append(identifier + ": evidence task, contract, status or source binding mismatch")
                 continue
             report_relative, report_checksum = record.get("report_path"), record.get("report_sha256")
