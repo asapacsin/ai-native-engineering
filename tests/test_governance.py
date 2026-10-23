@@ -210,6 +210,7 @@ class GovernanceTests(unittest.TestCase):
         evidence, _, evidence_path = self.make_release_evidence("done", snap["fingerprint"])
         registry = {"schema_version": 1, "work": [
             {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "contract_hash": governance.digest({**self.contract, "task_id": "done"}),
              "depends_on":[], "action":"Verified", "evidence":[evidence]}
         ]}
         self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
@@ -224,6 +225,7 @@ class GovernanceTests(unittest.TestCase):
         evidence, _, _ = self.make_release_evidence("other-task", snap["fingerprint"])
         registry = {"schema_version": 1, "work": [
             {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "contract_hash": governance.digest({**self.contract, "task_id": "done"}),
              "depends_on":[], "action":"Verified", "evidence":[evidence]}
         ]}
         self.assertTrue(any("task, contract" in p for
@@ -236,6 +238,7 @@ class GovernanceTests(unittest.TestCase):
         evidence, report_path, _ = self.make_release_evidence("done", snap["fingerprint"])
         registry = {"schema_version": 1, "work": [
             {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "contract_hash": governance.digest({**self.contract, "task_id": "done"}),
              "depends_on":[], "action":"Verified", "evidence":[evidence]}
         ]}
         report = json.loads(report_path.read_text(encoding="utf-8"))
