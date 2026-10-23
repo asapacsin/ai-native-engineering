@@ -81,6 +81,11 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(item["status"], "PASS")
         self.assertTrue(item["evidence"])
         self.assertIsInstance(item["evidence"][0], dict)
+        proof_path = self.repo / item["evidence"][0]["path"]
+        proof = json.loads(proof_path.read_text(encoding="utf-8"))
+        self.assertEqual(item["contract_hash"], proof["contract_hash"])
+        self.assertEqual(proof["task_id"], item["id"])
+        self.assertTrue((self.repo / proof["report_path"]).is_file())
         registry = json.loads(self.registry.read_text())
         source = work_snapshot(self.repo)["fingerprint"]
         self.assertEqual(release_evidence_issues(self.repo, registry, source), [])
