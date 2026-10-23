@@ -4,6 +4,8 @@
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
+The optional [portable Stop-hook continuation](docs/HOOK_CYCLE.md) carries the Android repo's bounded keep-going mechanism into this project: it reads the validated work frontier, routes around blocked dependencies, and stops on no progress or a stale end-state review. It is **off by default** and does not discover unrecorded tasks or replace real verification.
+
 The optional Claude Code pre-tool guard (`scripts/pre_tool_guard.py`) can block out-of-scope file edits and common destructive shell commands **before** execution. It is opt-in and defense-in-depth, not a full OS sandbox; see the [pre-tool guard guide](docs/PRE_TOOL_GUARD.md).
 
 ## Verify this repository

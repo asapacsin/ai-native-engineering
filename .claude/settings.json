@@ -18,7 +18,7 @@
           {
             "type": "command",
             "command": "python3 .claude/hooks/ai-native-stop.py",
-            "timeout": 360
+            "timeout": 390
           }
         ]
       }
