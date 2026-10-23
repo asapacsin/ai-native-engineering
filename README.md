@@ -64,7 +64,7 @@ See **[community-reviewed deterministic enforcement patterns](docs/COMMUNITY_DET
 
 1. Optionally surface reviewable candidates from explicitly selected source checklists with `python3 scripts/discover_work.py --repo <project> --source OPEN_PROBLEMS.md --output .ai-native/candidates.json`. Candidates are provenance records only; review them and create approved contracts before execution.
 2. Copy and edit `examples/contract.json` (or start with `adapters/aurel.json` / `adapters/android.json`).
-2. Configure `AI_NATIVE_EXECUTOR_CMD` (optional) and `AI_NATIVE_REVIEWER_CMD` (required for PASS) to **real authenticated external agent CLIs**; see `scripts/codex_bridge.py` for a working Codex CLI adapter with explicit Luna Medium / Astra High model flags. Prompts alone do not invoke an LLM.
+3. Configure `AI_NATIVE_EXECUTOR_CMD` (optional) and `AI_NATIVE_REVIEWER_CMD` (required for PASS) to **real authenticated external agent CLIs**; see `scripts/codex_bridge.py` for a working Codex CLI adapter with explicit Luna Medium / Astra High model flags. Prompts alone do not invoke an LLM.
 3. Run `python3 scripts/ai_native.py cycle --repo /path/to/project --contract /path/to/contract.json`.
 4. Examine `.ai-native/runs/<task-id>/latest.json`, gate logs, review packet and decision. On REWORK, target the changed files and re-verify; do not accept an unsupported green build as E2E proof.
 
