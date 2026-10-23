@@ -37,6 +37,12 @@ class ProcessSecurityTests(unittest.TestCase):
         self.assertEqual(env["REVIEWER_SECRET"], self.parent["REVIEWER_SECRET"])
         self.assertEqual(env["AI_NATIVE_REVIEW_PACKET"], "/tmp/packet")
 
+    def test_reviewer_home_can_be_separated(self):
+        self.parent["AI_NATIVE_REVIEWER_HOME"] = "/tmp/independent-reviewer"
+        env = child_environment("reviewer", self.parent)
+        self.assertEqual(env["HOME"], "/tmp/independent-reviewer")
+        self.assertEqual(env["USERPROFILE"], "/tmp/independent-reviewer")
+
     def test_gate_secrets_are_opt_in(self):
         env = child_environment("gate", self.parent, {"AI_NATIVE_TASK_ID": "test"})
         self.assertNotIn("OPENAI_API_KEY", env)
