@@ -99,7 +99,27 @@ def acquire_lock(repo: Path) -> tuple[int, Path]:
     return fd, path
 
 
+def ensure_registry_is_runtime_state(repo: Path, registry_path: Path) -> None:
+    """Mutable state must not change the reviewed source tree during a cycle."""
+    try:
+        relative = registry_path.resolve().relative_to(repo.resolve())
+    except ValueError:
+        return  # Trusted state stored outside the project worktree.
+    tracked = subprocess.run(["git", "-C", str(repo), "ls-files",
+                              "--error-unmatch", "--", str(relative)],
+                             capture_output=True)
+    if tracked.returncode == 0:
+        raise ValueError("mutable work registry is tracked source; use a separate "
+                         "untracked gitignored runtime registry")
+    ignored = subprocess.run(["git", "-C", str(repo), "check-ignore", "-q",
+                              "--", str(relative)], capture_output=True)
+    if ignored.returncode != 0:
+        raise ValueError("mutable work registry inside repo must be gitignored "
+                         "(recommended: .ai-native/work.json)")
+
+
 def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> int:
+    ensure_registry_is_runtime_state(repo, registry_path)
     fd, lock_path = acquire_lock(repo)
     began = time.monotonic()
     count = 0
