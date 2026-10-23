@@ -137,6 +137,16 @@ Compare the same representative task set before and after a workflow change. Opt
 - Preserve project-specific acceptance logic in adapters; keep the shared engine small and vendor-neutral.
 - Do not claim a feature is production-ready until its relevant real integration has been exercised.
 
+## Current implementation checkpoint
+
+- [x] PR #2 merged: bounded external supervision, role-scoped subprocess environments, task-versus-release decisions, and task-bound release evidence.
+- [x] Release evidence now binds the registry task ID and contract hash to the exact reviewed report path/hash and current source fingerprint.
+- [x] Secret values passed as separate CLI arguments are redacted from saved command logs.
+- [x] First source-backed discovery adapter implemented: explicit Markdown/text checklists produce deterministic, provenance-bound candidates. Candidates are not automatically approved or executed.
+- [ ] Run the repository's full test suite in a real runner. At this checkpoint GitHub reports no Actions runs or commit status checks for the PR head, so hosted CI execution has not been confirmed.
+- [ ] Configure and verify hosted branch protection/rulesets. The local governance code is not a substitute.
+- [ ] Run a real authenticated Executor/Reviewer smoke test in a disposable target worktree; then test the Android and Aurel adapters at their relevant runtime/evidence levels.
+
 ## Next concrete action
 
-**Review and validate PR #2 first.** Once it passes the checks and its documentation is reconciled, configure hosted merge protection and run a small live Executor/Reviewer smoke test. Only then prioritize canonical task discovery—the main step from manually maintaining a frontier to a genuinely reusable multi-project workflow.
+**Restore verifiable CI first:** enable/confirm GitHub Actions for this repository and require the existing controller test workflow on `main`. Then run the live authenticated smoke test. After that, extend source-backed discovery to test failures, requirements/specifications, and stale evidence, with an explicit human-review step before candidates can enter the executable frontier. Continue with isolated worktrees and evidence-backed lifecycle transitions in separate PRs.
