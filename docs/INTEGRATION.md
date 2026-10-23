@@ -183,3 +183,20 @@ it does not claim distributed scheduling or exactly-once process execution.
 A trusted operator/CI must keep the runtime registry and requirements outside
 Executor write permissions. The optional Claude Stop hook is not a replacement
 for this external driver.
+
+## 12. Source-backed task discovery
+
+Use `scripts/discover_work.py` to turn unchecked Markdown/text checklist items in explicitly named, trusted files into reviewable candidates with source path, line number, source-file SHA-256, line SHA-256, and current Git commit provenance.
+
+```bash
+python3 scripts/discover_work.py \
+  --repo /path/to/project \
+  --source OPEN_PROBLEMS.md \
+  --source docs/PROJECT_PLAN.md \
+  --output .ai-native/candidates.json \
+  --max-items 100
+```
+
+The command only reads the listed files and emits candidate JSON. It does not execute tasks, create contracts, promote candidates into `work.json`, or claim that a candidate is approved. Review each candidate, confirm its scope and acceptance criteria, then create an explicit task contract. Only unchecked `[ ]` Markdown/text checklist items are recognized; completed `[x]` items and unlisted files are ignored. Generated/runtime directories such as `.ai-native/` and `.git/` cannot be discovery sources.
+
+The default output is stdout. If writing inside the target repository, the output path must already be gitignored (normally via `.ai-native/`) so generated discovery state cannot invalidate reviewed source fingerprints. The item limit fails closed instead of silently truncating the backlog. This is the first source adapter, not full discovery from test failures, issue trackers, requirement manifests, or stale evidence.
