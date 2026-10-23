@@ -138,3 +138,34 @@ physical-device provenance, or configure hosted branch protection.
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+
+## 11. Bounded durable external supervisor
+
+Use the external supervisor for sessions spanning multiple tasks. It consumes a
+trusted, explicit work registry, not a model-invented backlog. Each autonomous
+entry must include contract_path and a matching task_id, in addition to the
+required id, owner, status, action and depends_on fields.
+
+**Keep the mutable runtime registry outside the target Git tree or under a
+gitignored folder such as .ai-native/work.json.** Modifying a tracked registry
+after review would invalidate the source fingerprint. The controller rejects
+tracked or non-ignored runtime registries in the worktree.
+
+
+```bash
+python3 scripts/supervisor.py --repo /path/to/project \
+  --registry /path/to/project/.ai-native/work.json \
+  --max-tasks 10 --max-seconds 1800
+```
+
+The supervisor creates an exclusive lock and checkpoints every task. On
+restart, a RUNNING task advances to PASS only if its current exact-tree,
+exact-contract independent review is valid; otherwise it becomes
+BLOCKED_EXTERNAL for diagnosis while unrelated work may proceed. To recover
+after a hard crash, confirm there is no live supervisor before removing the
+stale .ai-native/supervisor.lock. This design is synchronous and single-host;
+it does not claim distributed scheduling or exactly-once process execution.
+A trusted operator/CI must keep the runtime registry and requirements outside
+Executor write permissions. The optional Claude Stop hook is not a replacement
+for this external driver.
