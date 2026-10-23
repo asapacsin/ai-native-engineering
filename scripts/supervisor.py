@@ -8,6 +8,7 @@ automatically merge code.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -44,6 +45,28 @@ def verified_task(repo: Path, contract: dict, task_id: str) -> bool:
         return False
 
 
+def task_evidence_reference(repo: Path, contract: dict, task_id: str) -> dict:
+    """Write a hash-bound attestation only after independent cycle validation."""
+    if not verified_task(repo, contract, task_id):
+        raise ValueError("cannot create evidence without current verified task")
+    snapshot = work_snapshot(repo)
+    report_path = repo / ".ai-native" / "runs" / task_id / "latest.json"
+    proof = {
+        "status": "PASS",
+        "task_id": task_id,
+        "source_fingerprint": snapshot["fingerprint"],
+        "contract_hash": canonical_hash(contract),
+        "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
+        "producer": "ai-native/supervisor",
+    }
+    evidence_path = repo / ".ai-native" / "evidence" / (task_id + ".json")
+    save_json(evidence_path, proof)
+    return {
+        "path": ".ai-native/evidence/" + task_id + ".json",
+        "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    }
+
+
 def resolve_contract(registry_path: Path, item: dict) -> tuple[Path, dict]:
     name = item.get("contract_path")
     if not isinstance(name, str) or not name.strip():
@@ -77,7 +100,7 @@ def reconcile_interrupted(repo: Path, registry_path: Path, data: dict) -> dict:
             passed = False
         if passed:
             item["status"] = "PASS"
-            item["evidence"] = [".ai-native/runs/" + item["id"] + "/latest.json"]
+            item["evidence"] = [task_evidence_reference(repo, contract, item["id"])]
             item.pop("blocked_by", None)
         else:
             item["status"] = "BLOCKED_EXTERNAL"
@@ -194,7 +217,7 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
             current_item = next(entry for entry in current["work"] if entry["id"] == item_id)
             if passed:
                 current_item["status"] = "PASS"
-                current_item["evidence"] = [".ai-native/runs/" + item_id + "/latest.json"]
+                current_item["evidence"] = [task_evidence_reference(repo, contract, item_id)]
                 current_item.pop("blocked_by", None)
             else:
                 current_item["status"] = "BLOCKED_EXTERNAL"
