@@ -163,13 +163,33 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(governance.eligibility(self.repo, self.contract), [])
 
     def test_evidence_backed_release_registry_can_pass(self):
+        import hashlib
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        snap = ai_native.work_snapshot(self.repo)["fingerprint"]
+        evidence_path = self.repo / ".ai-native/evidence/done.json"
+        evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        evidence_path.write_text(json.dumps({"status": "PASS", "source_fingerprint": snap}), encoding="utf-8")
+        evidence = {"path": ".ai-native/evidence/done.json",
+                    "sha256": hashlib.sha256(evidence_path.read_bytes()).hexdigest()}
+        registry = {"schema_version": 1, "work": [
+            {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "depends_on":[], "action":"Verified", "evidence":[evidence]}
+        ]}
+        self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
+        evidence_path.write_text("{}", encoding="utf-8")
+        self.assertTrue(any("checksum" in p for p in
+                            governance.eligibility(self.repo, self.contract, release_registry=registry)))
+
+    def test_release_rejects_unverified_evidence_label(self):
         governance.approve(self.repo, self.contract, "planner", "planner")
         self.assertVerdict("PASS")
         registry = {"schema_version": 1, "work": [
             {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
-             "depends_on":[], "action":"Verified", "evidence":["verified-gate"]}
+             "depends_on":[], "action":"Verified", "evidence":["looks-good"]}
         ]}
-        self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
+        self.assertTrue(any("hashed artifact" in p for p in
+                            governance.eligibility(self.repo, self.contract, release_registry=registry)))
 
     def test_globs_are_slash_aware(self):
         self.assertTrue(governance.patterns_match("src/sub/main.py", "src/**/*.py"))
