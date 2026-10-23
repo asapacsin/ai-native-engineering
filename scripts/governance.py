@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from ai_native import load_json, work_snapshot, validate_contract, save_json
-from control_plane import decide_integration, verify_decision
+from control_plane import decide_frontier, decide_integration, verify_decision
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
 PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
@@ -204,7 +204,8 @@ def required_evidence_issues(repo: Path, requirements: dict, latest: dict) -> li
     return problems
 
 
-def eligibility(repo: Path, contract: dict, requirements: dict | None = None) -> list[str]:
+def eligibility(repo: Path, contract: dict, requirements: dict | None = None,
+                release_registry: dict | None = None) -> list[str]:
     scope_problems = scope_issues(repo, contract)
     issues = list(scope_problems)
     approval_ok = False
@@ -250,7 +251,8 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None) ->
             requirements_pass = True
     except (OSError, ValueError):
         issues.append("no current end-state verification available")
-    control = decide_integration({
+    integration_state = {
+        "scope": "release" if release_registry is not None else "task",
         "contract_approved": approval_ok,
         "scope_clean": not scope_problems,
         "review_pass": review_pass,
@@ -259,11 +261,23 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None) ->
         "required_gates_pass": required_gates_pass,
         "requirements_pass": requirements_pass,
         "source_clean": not snapshot["dirty"],
-        "frontier_complete": True,
-        "human_clear": True,
-        "external_clear": True
-    })
-    if control["action"] != "READY_TO_MERGE" and not issues:
+    }
+    if release_registry is not None:
+        work = release_registry.get("work") if isinstance(release_registry, dict) and release_registry.get("schema_version") == 1 else None
+        observed = decide_frontier(work)
+        valid = verify_decision(observed) and observed["action"] == "STOP_COMPLETE"
+        candidate = observed.get("frontier", {})
+        integration_state.update({
+            "frontier_complete": valid,
+            "human_clear": valid and not candidate.get("human"),
+            "external_clear": valid and not candidate.get("blocked"),
+        })
+        if not valid:
+            issues.append("project release requires a valid all-terminal evidence-backed work registry: "
+                          + ", ".join(observed.get("reasons", [])))
+    control = decide_integration(integration_state)
+    expected = "READY_TO_RELEASE" if release_registry is not None else "READY_TO_MERGE"
+    if control["action"] != expected and not issues:
         issues.extend(control["reasons"])
     return issues
 
@@ -274,6 +288,7 @@ def main(argv=None):
     parser.add_argument("--repo", default=".")
     parser.add_argument("--contract", required=True)
     parser.add_argument("--requirements")
+    parser.add_argument("--release-registry", help="require complete verified frontier for PROJECT release")
     parser.add_argument("--actor", default="")
     parser.add_argument("--role", default="executor")
     args = parser.parse_args(argv)
@@ -286,7 +301,8 @@ def main(argv=None):
         if args.action == "eligible" and not args.requirements:
             raise ValueError("eligible requires an independent --requirements manifest")
         problems = (scope_issues(repo, contract) if args.action == "scope" else
-                    eligibility(repo, contract, load_json(Path(args.requirements)) if args.requirements else None))
+                    eligibility(repo, contract, load_json(Path(args.requirements)) if args.requirements else None,
+                                load_json(Path(args.release_registry)) if args.release_registry else None))
         print(json.dumps({"result": "ELIGIBLE" if not problems else "NOT_ELIGIBLE", "problems": problems}, indent=2))
         return 0 if not problems else 2
     except (ValueError, OSError, subprocess.CalledProcessError) as e:
