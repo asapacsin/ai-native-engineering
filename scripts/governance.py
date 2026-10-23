@@ -21,7 +21,8 @@ from control_plane import decide_frontier, decide_integration, verify_decision
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
 PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
-             "verification/requirements.json", "state/contracts/", "state/reviews.log")
+             "verification/requirements.json", "verification/work.json",
+             "state/contracts/", "state/reviews.log")
 
 
 def digest(obj: dict) -> str:
