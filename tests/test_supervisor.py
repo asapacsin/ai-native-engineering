@@ -10,6 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from supervisor import reconcile_interrupted
+from governance import release_evidence_issues
+from ai_native import work_snapshot
 
 SUPERVISOR = ROOT / "scripts" / "supervisor.py"
 
@@ -78,6 +80,13 @@ class SupervisorTests(unittest.TestCase):
         item = json.loads(self.registry.read_text())["work"][0]
         self.assertEqual(item["status"], "PASS")
         self.assertTrue(item["evidence"])
+        self.assertIsInstance(item["evidence"][0], dict)
+        registry = json.loads(self.registry.read_text())
+        source = work_snapshot(self.repo)["fingerprint"]
+        self.assertEqual(release_evidence_issues(self.repo, registry, source), [])
+        (self.repo / "app.py").write_text("value = 3\n", encoding="utf-8")
+        self.assertTrue(release_evidence_issues(self.repo, registry,
+                        work_snapshot(self.repo)["fingerprint"]))
         self.assertEqual(json.loads((self.repo / ".ai-native/supervisor-checkpoint.json").read_text())["state"], "VERIFIED")
 
     def test_missing_contract_stops_without_inventing_execution(self):
