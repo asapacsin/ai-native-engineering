@@ -162,9 +162,10 @@ python3 scripts/supervisor.py --repo /path/to/project \
 The supervisor creates an exclusive lock and checkpoints every task. On
 restart, a RUNNING task advances to PASS only if its current exact-tree,
 exact-contract independent review is valid; otherwise it becomes
-BLOCKED_EXTERNAL for diagnosis while unrelated work may proceed. To recover
-after a hard crash, confirm there is no live supervisor before removing the
-stale .ai-native/supervisor.lock. This design is synchronous and single-host;
+BLOCKED_EXTERNAL for diagnosis while unrelated work may proceed. On restart it automatically reclaims a stale
+lock only when the previous process ID no longer exists. If the lock owner
+cannot be verified, it refuses concurrent execution; investigate before
+manual intervention. This design is synchronous and single-host;
 it does not claim distributed scheduling or exactly-once process execution.
 A trusted operator/CI must keep the runtime registry and requirements outside
 Executor write permissions. The optional Claude Stop hook is not a replacement
