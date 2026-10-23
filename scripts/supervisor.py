@@ -56,6 +56,7 @@ def task_evidence_reference(repo: Path, contract: dict, task_id: str) -> dict:
         "task_id": task_id,
         "source_fingerprint": snapshot["fingerprint"],
         "contract_hash": canonical_hash(contract),
+        "report_path": ".ai-native/runs/" + task_id + "/latest.json",
         "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
         "producer": "ai-native/supervisor",
     }
