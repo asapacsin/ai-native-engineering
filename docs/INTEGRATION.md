@@ -93,7 +93,10 @@ variable to OPENAI_API_KEY (and correspondingly for other roles). Environment
 variable names are checked; wildcards are rejected. CLI commands that
 authenticate using files under HOME still have access to those files: separate
 HOME/profile directories, OS users, sandbox permissions and file/network
-restrictions are required for genuine credential and reviewer isolation. The
+restrictions are required for genuine credential and reviewer isolation.
+Set AI_NATIVE_REVIEWER_HOME (and optionally AI_NATIVE_EXECUTOR_HOME) to
+separate credential-profile directories if your CLI loads credentials from HOME.
+The runtime does not create or authenticate those profiles for you. The
 model role string or read-only prompt is never an authentication boundary.
 
 Controller command logs, stderr/stdout excerpts and reviewer findings redact
@@ -118,8 +121,10 @@ python3 scripts/governance.py eligible \
   --release-registry /path/to/project/verification/work.json
 ```
 
-A release requires every frontier item to be terminal with evidence,
-with no unresolved human or external tasks. Missing/invalid registry data
+A release requires every frontier item to be terminal and every PASS to
+reference actual JSON evidence files under .ai-native/ with a matching
+source_fingerprint, PASS status and exact SHA-256, plus no unresolved human
+or external tasks. Prior PASS files become stale when the source changes. Missing/invalid registry data
 fails closed. This CLI still does not authenticate human attestations, establish
 physical-device provenance, or configure hosted branch protection.
 
