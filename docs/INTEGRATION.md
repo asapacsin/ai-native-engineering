@@ -124,9 +124,17 @@ python3 scripts/governance.py eligible \
 A release requires every frontier item to be terminal and every PASS to
 reference actual JSON evidence files under .ai-native/ with a matching
 source_fingerprint, PASS status and exact SHA-256, plus no unresolved human
-or external tasks. Prior PASS files become stale when the source changes. Missing/invalid registry data
-fails closed. This CLI still does not authenticate human attestations, establish
-physical-device provenance, or configure hosted branch protection.
+or external tasks. The supervisor records each passing item's contract_hash;
+its evidence descriptor binds the task ID and contract hash to the exact
+latest.json review report through report_path and report_sha256. The release
+gate checks the report's own PASS, source fingerprint, reviewed contract hash,
+and TASK_VERIFIED control-plane decision. Reusing another task's proof or
+changing the reviewed report invalidates release evidence. Prior PASS files
+become stale when the source changes. Missing/invalid registry data fails
+closed. These hashes prove consistency and integrity, not that a trusted
+hardware runner actually executed the test. This CLI still does not
+authenticate human attestations, establish physical-device provenance, or
+configure hosted branch protection.
 
 ## 10. Verification levels
 
