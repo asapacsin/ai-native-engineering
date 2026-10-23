@@ -97,6 +97,20 @@ class KeepGoingTests(unittest.TestCase):
         result, _ = self.run_hook(event)
         self.assertIn("Do not ask the owner", result["reason"])
 
+    def test_serialized_stop_entry_point_invokes_continuation(self):
+        wrapper = ROOT / ".claude" / "hooks" / "ai-native-stop.py"
+        env = dict(os.environ)
+        env.pop("AI_NATIVE_STOP_ENABLED", None)
+        env.update({"AI_NATIVE_CONTINUE_ENABLED": "1",
+                    "AI_NATIVE_WORK_REGISTRY": str(self.registry),
+                    "CLAUDE_PROJECT_DIR": str(self.repo)})
+        result = subprocess.run(
+            [sys.executable, str(wrapper)],
+            input=json.dumps({"session_id": "sequential", "stop_hook_active": False}),
+            capture_output=True, text=True, env=env, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("NEXT_ACTION [one]", json.loads(result.stdout)["reason"])
+
     def test_disabled_is_a_noop(self):
         result, _ = self.run_hook(extra_env={"AI_NATIVE_CONTINUE_ENABLED": "0"})
         self.assertIsNone(result)

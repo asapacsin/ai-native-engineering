@@ -27,8 +27,10 @@ $env:AI_NATIVE_WORK_REGISTRY = 'C:\work\project-work.json'
 claude
 ```
 
-The checked-in `.claude/settings.json` registers both the existing end-state
-review hook and the new continuation hook. The new hook is off by default.
+The checked-in `.claude/settings.json` registers one ordered Stop entry point:
+`.claude/hooks/ai-native-stop.py` performs enabled end-state review first, then
+calls `.claude/hooks/keep-going.py` for enabled continuation. Two independent
+Stop commands would risk a stale-review race. Continuation is off by default.
 To disable it, unset the environment variable or set it to `0`.
 
 ## Deterministic case routing
@@ -51,7 +53,8 @@ session. After real verification, the executing agent must update the registry
 status/evidence. A changed task contract or source invalidates previous review
 proof. With `AI_NATIVE_STOP_ENABLED=1`, continuation additionally requires the
 latest end-state review to be a current deterministic TASK_VERIFIED result.
-The original review Stop hook remains the sole owner of REWORK blocking.
+The existing review logic remains the sole owner of REWORK blocking. Both
+hooks are serialized by the same Stop entry point.
 
 ## What was intentionally not ported
 
