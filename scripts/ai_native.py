@@ -226,6 +226,9 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
             raise ValueError("repository changed while reviewer was running")
         response["findings"] = [redact_text(item, parent_env) for item in response["findings"]]
         response["next_action"] = redact_text(response["next_action"], parent_env)
+        response = {key: response[key] for key in ("verdict", "reviewed_fingerprint",
+                    "reviewed_contract_hash", "findings", "next_action")}
+        save_json(folder / "review_result.json", response)
         reviewer_verdict = response["verdict"]
         outcome = reviewer_verdict
         if req_failures and outcome == "PASS":
