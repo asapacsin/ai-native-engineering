@@ -69,3 +69,72 @@ python C:\path\to\ai-native-engineering\\scripts\\ai_native.py cycle --repo C:\p
 Change actual installed model selection through `AI_NATIVE_EXECUTOR_MODEL`, `AI_NATIVE_REVIEWER_MODEL`, and corresponding `_EFFORT` env vars. Verify the resulting Codex session activity. This wrapper uses `codex exec --model ... --sandbox ... --output-schema ... --output-last-message ...` as documented by the Codex non-interactive workflow. The reviewer is sandboxed read-only; the controller rejects a stale fingerprint or a reviewer process modifying the tracked source.
 
 **Security and billing:** this launches real model sessions consuming the account/API allowance where available. Authenticate through Codex itself, not by committing tokens. Run on a small disposable branch first. Never invoke it with untrusted task contracts, which contain executable gate commands.
+
+
+## 8. Subprocess credential scope and log redaction
+
+The controller now constructs separate child environments for executor, gate and
+reviewer processes. It passes ordinary runtime variables (PATH, HOME,
+JAVA_HOME and ANDROID_SDK_ROOT), its own task protocol fields, and the selected
+role's model configuration. It does **not** copy arbitrary API tokens from the
+parent process. For a role that explicitly needs a secret, grant only the
+needed variable names, not the values, with a comma-separated allowlist:
+
+
+```bash
+export AI_NATIVE_EXECUTOR_ENV_ALLOWLIST=OPENAI_API_KEY
+export AI_NATIVE_REVIEWER_ENV_ALLOWLIST=REVIEWER_API_KEY
+# Only if a verification command truly needs credentials:
+export AI_NATIVE_GATE_ENV_ALLOWLIST=TEST_SERVICE_TOKEN
+```
+
+On Windows PowerShell set the AI_NATIVE_EXECUTOR_ENV_ALLOWLIST environment
+variable to OPENAI_API_KEY (and correspondingly for other roles). Environment
+variable names are checked; wildcards are rejected. CLI commands that
+authenticate using files under HOME still have access to those files: separate
+HOME/profile directories, OS users, sandbox permissions and file/network
+restrictions are required for genuine credential and reviewer isolation. The
+model role string or read-only prompt is never an authentication boundary.
+
+Controller command logs, stderr/stdout excerpts and reviewer findings redact
+recognized credential patterns and known sensitive parent environment values.
+This is defense in depth; do not print secrets in arbitrary formats or supply
+them in argv, specs or prompts. Check target-project artifact retention
+and permissions. Authentication remains an explicit deployment prerequisite.
+
+## 9. Task merge is not project release
+
+The governance eligible command checks the exact task under review, mandatory
+requirement evidence, current fingerprint and approved scope; it does not
+pretend that all unrelated work has finished. To require PROJECT RELEASE
+readiness, additionally provide a verified work registry:
+
+
+```bash
+python3 scripts/governance.py eligible \
+  --repo /path/to/project \
+  --contract /path/to/task.json \
+  --requirements /path/to/project/verification/requirements.json \
+  --release-registry /path/to/project/verification/work.json
+```
+
+A release requires every frontier item to be terminal with evidence,
+with no unresolved human or external tasks. Missing/invalid registry data
+fails closed. This CLI still does not authenticate human attestations, establish
+physical-device provenance, or configure hosted branch protection.
+
+## 10. Verification levels
+
+- The unittest command below tests the controller and a full
+  test-double-backed external process cycle.
+- A successful GitHub Actions job proves that the checked-out controller
+  revision passed those tests in the workflow runner.
+- A live authenticated Executor/Reviewer run in a disposable target worktree
+  is still required to certify provider integration and actual model selection.
+- Configure GitHub rulesets and required status checks separately. A workflow
+  YAML file does not make a branch protected.
+
+
+```bash
+python3 -m unittest discover -s tests -v
+```
