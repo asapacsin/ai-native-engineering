@@ -75,6 +75,13 @@ class ProcessSecurityTests(unittest.TestCase):
         self.assertNotIn(self.parent["OPENAI_API_KEY"], " ".join(result))
         self.assertEqual(args[0], result[0])
 
+    def test_secret_value_after_flag_is_redacted(self):
+        args = ["worker", "--api-key", "short-secret", "--password=hunter42",
+                "--token", "token-value"]
+        result = redact_argv(args, self.parent)
+        self.assertEqual(result, ["worker", "--api-key", "[REDACTED]",
+                                  "--password=[REDACTED]", "--token", "[REDACTED]"])
+
 
 if __name__ == "__main__":
     unittest.main()
