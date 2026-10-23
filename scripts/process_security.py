@@ -77,4 +77,20 @@ def redact_text(value: str, source: Mapping[str, str] | None = None) -> str:
 
 
 def redact_argv(argv: list[str], source: Mapping[str, str] | None = None) -> list[str]:
-    return [redact_text(argument, source) for argument in argv]
+    """Redact both inline secrets and values passed as the next CLI argument."""
+    output: list[str] = []
+    redact_next = False
+    for argument in argv:
+        if redact_next:
+            output.append("[REDACTED]")
+            redact_next = False
+            continue
+        output.append(redact_text(argument, source))
+        flag = argument.split("=", 1)[0].lstrip("-").replace("-", "_")
+        sensitive_flag = re.search(
+            r"(?:^|_)(?:api_?key|token|secret|password|authorization|auth|credential|private_key)(?:$|_)",
+            flag, re.I
+        )
+        if argument.startswith("-") and "=" not in argument and sensitive_flag:
+            redact_next = True
+    return output
