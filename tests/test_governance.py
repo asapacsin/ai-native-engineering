@@ -146,6 +146,31 @@ class GovernanceTests(unittest.TestCase):
         p.write_text("{}")
         self.assertTrue(any("protected" in issue for issue in governance.scope_issues(self.repo, self.contract)))
 
+    def test_project_release_blocks_unfinished_frontier(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        registry = {"schema_version": 1, "work": [
+            {"id":"device", "owner":"AUTONOMOUS", "status":"NOT_RUN",
+             "depends_on":[], "action":"Run integration tests"}
+        ]}
+        issues = governance.eligibility(self.repo, self.contract, release_registry=registry)
+        self.assertTrue(any("project release" in issue for issue in issues))
+
+    def test_task_merge_does_not_claim_project_done(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        # A reviewed feature can merge before unrelated backlog tasks finish.
+        self.assertEqual(governance.eligibility(self.repo, self.contract), [])
+
+    def test_evidence_backed_release_registry_can_pass(self):
+        governance.approve(self.repo, self.contract, "planner", "planner")
+        self.assertVerdict("PASS")
+        registry = {"schema_version": 1, "work": [
+            {"id":"done", "owner":"AUTONOMOUS", "status":"PASS",
+             "depends_on":[], "action":"Verified", "evidence":["verified-gate"]}
+        ]}
+        self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
+
     def test_globs_are_slash_aware(self):
         self.assertTrue(governance.patterns_match("src/sub/main.py", "src/**/*.py"))
         self.assertFalse(governance.patterns_match("src/sub/main.py", "src/*.py"))
