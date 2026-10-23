@@ -47,6 +47,10 @@ def child_environment(role: str, source: Mapping[str, str],
         raise ValueError("invalid subprocess environment allowlist")
     allowed = BASE_VARIABLES | ROLE_MODEL_VARIABLES[role] | names
     result = {key: value for key, value in source.items() if key in allowed}
+    profile = source.get("AI_NATIVE_" + role.upper() + "_HOME")
+    if profile:
+        result["HOME"] = profile
+        result["USERPROFILE"] = profile
     # Only the controller can set protocol fields; do not trust parent versions.
     result.update(protocol or {})
     return result
