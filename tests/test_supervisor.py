@@ -111,10 +111,18 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(process.returncode, 5)
         self.assertIn("tracked", process.stderr)
 
+    def test_dead_process_lock_is_reclaimed(self):
+        lock = self.repo / ".ai-native/supervisor.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text("99999999")
+        result = self.drive()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(lock.exists())
+
     def test_concurrent_lock_rejected(self):
         lock = self.repo / ".ai-native/supervisor.lock"
         lock.parent.mkdir(parents=True, exist_ok=True)
-        lock.write_text("12345")
+        lock.write_text(str(os.getpid()))
         process = self.drive()
         self.assertEqual(process.returncode, 5)
         self.assertTrue(lock.exists())
