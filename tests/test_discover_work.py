@@ -49,7 +49,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(len(result["sources"]), 1)
 
     def test_path_escape_rejected(self):
-        outside = Path(self.tmp.name).parent / "outside-discovery.md"
+        outside = self.repo.parent / (self.repo.name + "-outside.md")
         outside.write_text("- [ ] external task\n", encoding="utf-8")
         self.addCleanup(lambda: outside.unlink(missing_ok=True))
         with self.assertRaises(ValueError):
