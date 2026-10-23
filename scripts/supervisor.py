@@ -101,6 +101,7 @@ def reconcile_interrupted(repo: Path, registry_path: Path, data: dict) -> dict:
             passed = False
         if passed:
             item["status"] = "PASS"
+            item.update({"contract_hash": canonical_hash(contract)})
             item["evidence"] = [task_evidence_reference(repo, contract, item["id"])]
             item.pop("blocked_by", None)
         else:
