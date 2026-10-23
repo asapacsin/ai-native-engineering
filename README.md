@@ -62,7 +62,8 @@ See **[community-reviewed deterministic enforcement patterns](docs/COMMUNITY_DET
 
 ## Drive a project
 
-1. Copy and edit `examples/contract.json` (or start with `adapters/aurel.json` / `adapters/android.json`).
+1. Optionally surface reviewable candidates from explicitly selected source checklists with `python3 scripts/discover_work.py --repo <project> --source OPEN_PROBLEMS.md --output .ai-native/candidates.json`. Candidates are provenance records only; review them and create approved contracts before execution.
+2. Copy and edit `examples/contract.json` (or start with `adapters/aurel.json` / `adapters/android.json`).
 2. Configure `AI_NATIVE_EXECUTOR_CMD` (optional) and `AI_NATIVE_REVIEWER_CMD` (required for PASS) to **real authenticated external agent CLIs**; see `scripts/codex_bridge.py` for a working Codex CLI adapter with explicit Luna Medium / Astra High model flags. Prompts alone do not invoke an LLM.
 3. Run `python3 scripts/ai_native.py cycle --repo /path/to/project --contract /path/to/contract.json`.
 4. Examine `.ai-native/runs/<task-id>/latest.json`, gate logs, review packet and decision. On REWORK, target the changed files and re-verify; do not accept an unsupported green build as E2E proof.
@@ -80,7 +81,8 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md), [pre-tool guard guide](docs/PR
 | `scripts/codex_bridge.py` | optional external Codex executor/reviewer subprocess adapters; live integration not certified |
 | `scripts/control_plane.py` | pure deterministic cycle, frontier and merge decisions; decision hash and fail-closed rules |
 | `scripts/governance.py` | procedural approvals and scope checks delegated to deterministic merge policy; not GitHub branch protection |
-| `scripts/frontier.py` | manually defined dependency frontier, blocker propagation, human handoff gate; no automatic source discovery |
+| `scripts/frontier.py` | manually defined dependency frontier, blocker propagation, human handoff gate |
+| `scripts/discover_work.py` | deterministic, provenance-bound candidates from explicitly named Markdown/text checklists; never executes or promotes tasks |
 | `docs/PRACTICE_COVERAGE.md` | verified coverage audit and remaining migration roadmap |
 | `docs/PRE_TOOL_GUARD.md` | opt-in pre-tool guard setup, test procedure, and limitations |
 | `.claude/hooks/ai-native-stop.py` | opt-in end-state Stop hook, guards recursive loops |
