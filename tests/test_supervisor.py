@@ -97,6 +97,20 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(after["status"], "BLOCKED_EXTERNAL")
         self.assertIn("interrupted", after["blocked_by"])
 
+    def test_rejects_tracked_mutable_registry(self):
+        tracked = self.repo / "verification/work.json"
+        tracked.parent.mkdir()
+        tracked.write_text(self.registry.read_text(), encoding="utf-8")
+        subprocess.run(["git", "add", "verification/work.json"], cwd=self.repo, check=True)
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "commit", "-qm", "track work manifest"], cwd=self.repo, check=True)
+        process = subprocess.run(
+            [sys.executable, str(SUPERVISOR), "--repo", str(self.repo),
+             "--registry", str(tracked), "--max-tasks", "1"],
+            cwd=ROOT, capture_output=True, text=True, timeout=10)
+        self.assertEqual(process.returncode, 5)
+        self.assertIn("tracked", process.stderr)
+
     def test_concurrent_lock_rejected(self):
         lock = self.repo / ".ai-native/supervisor.lock"
         lock.parent.mkdir(parents=True, exist_ok=True)
