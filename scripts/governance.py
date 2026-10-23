@@ -287,11 +287,13 @@ def release_evidence_issues(repo: Path, registry: dict, source_fingerprint: str)
                 problems.append(identifier + ": reviewed report is not valid JSON")
                 continue
             decision = report.get("control_plane_decision") if isinstance(report, dict) else None
+            snapshot = report.get("snapshot") if isinstance(report, dict) else None
+            snapshot = snapshot if isinstance(snapshot, dict) else {}
             if (not isinstance(report, dict)
                     or report.get("task_id") != identifier
                     or report.get("verdict") != "PASS"
                     or report.get("contract_hash") != contract_hash
-                    or report.get("snapshot", {}).get("fingerprint") != source_fingerprint
+                    or snapshot.get("fingerprint") != source_fingerprint
                     or report.get("reviewed_fingerprint") != source_fingerprint
                     or report.get("reviewed_contract_hash") != contract_hash
                     or report.get("failed_required_gates")
