@@ -31,12 +31,15 @@ Executor/Reviewer CLIs and a trusted registry:
 
 ```bash
 python3 scripts/supervisor.py --repo /path/to/project \
-  --registry /path/to/project/verification/work.json \
+  --registry /path/to/project/.ai-native/work.json \
   --max-tasks 10 --max-seconds 1800
 ```
 
-The work registry should be excluded from the Executor's approved write paths
-and protected in CI. A task's contract_path may be absolute or relative to
+The mutable runtime registry must be outside the project or in a gitignored
+path such as .ai-native/work.json; tracked source files are rejected to avoid
+invalidating reviewed source fingerprints. The canonical task definitions and
+independent requirements can remain tracked, but runtime status belongs to
+the external supervisor, not the Executor. A task's contract_path may be absolute or relative to
 the registry directory and must identify a contract with the same task_id.
 See docs/INTEGRATION.md for credential allowlists and release gates.
 
