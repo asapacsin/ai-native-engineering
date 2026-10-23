@@ -219,6 +219,7 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
             current_item = next(entry for entry in current["work"] if entry["id"] == item_id)
             if passed:
                 current_item["status"] = "PASS"
+                current_item.update({"contract_hash": canonical_hash(contract)})
                 current_item["evidence"] = [task_evidence_reference(repo, contract, item_id)]
                 current_item.pop("blocked_by", None)
             else:
