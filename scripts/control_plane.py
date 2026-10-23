@@ -279,19 +279,24 @@ def decide_frontier(work: list[dict], clean_passes: int = 0,
 
 
 def decide_integration(state: dict) -> dict:
-    """Fail-closed merge gate. Every boolean is supplied by a deterministic verifier."""
-    keys = ("contract_approved", "scope_clean", "review_pass", "review_current",
-            "contract_current", "required_gates_pass", "requirements_pass", "source_clean",
-            "frontier_complete", "human_clear", "external_clear")
+    """Distinguish task merge from project release; do not fake completion state."""
     if not isinstance(state, dict):
         return _decision("INVALID_STATE", ["integration_state_must_be_object"])
+    scope = state.get("scope", "task")
+    if scope not in {"task", "release"}:
+        return _decision("INVALID_STATE", ["integration_scope_must_be_task_or_release"])
+    keys = ("contract_approved", "scope_clean", "review_pass", "review_current",
+            "contract_current", "required_gates_pass", "requirements_pass", "source_clean")
+    if scope == "release":
+        keys += ("frontier_complete", "human_clear", "external_clear")
     missing = [key for key in keys if not isinstance(state.get(key), bool)]
     if missing:
         return _decision("INVALID_STATE", [f"missing_boolean:{key}" for key in missing])
     failed = [key for key in keys if state[key] is not True]
     if failed:
         return _decision("NOT_ELIGIBLE", [f"precondition_failed:{key}" for key in failed])
-    return _decision("READY_TO_MERGE", ["all_deterministic_merge_preconditions_passed"])
+    return _decision("READY_TO_RELEASE" if scope == "release" else "READY_TO_MERGE",
+                     ["all_deterministic_" + scope + "_preconditions_passed"])
 
 
 def main(argv=None) -> int:

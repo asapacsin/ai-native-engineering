@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from control_plane import canonical_hash, decide_cycle
+from process_security import child_environment, redact_argv, redact_text
 
 VERDICTS = {"PASS", "REWORK", "BLOCKED", "NOT_VERIFIED"}
 TASK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$")
@@ -109,20 +110,23 @@ def validate_contract(contract: dict) -> None:
         raise ValueError("at least one required gate is mandatory")
 
 
-def call_argv(argv: list[str], repo: Path, env: dict, timeout: float) -> dict:
+def call_argv(argv: list[str], repo: Path, env: dict, timeout: float,
+              sensitive_environment: dict | None = None) -> dict:
     began = dt.datetime.now(dt.timezone.utc).isoformat()
     try:
         p = subprocess.run(argv, cwd=repo, capture_output=True, text=True, env=env,
                            timeout=max(1, timeout), errors="replace")
         # Store bounded excerpts only. Never pass secrets/credentials in CLI output.
-        return {"command": argv, "started": began, "exit_code": p.returncode,
-                "stdout_tail": p.stdout[-5000:], "stderr_tail": p.stderr[-5000:],
+        return {"command": redact_argv(argv, sensitive_environment), "started": began, "exit_code": p.returncode,
+                "stdout_tail": redact_text(p.stdout[-5000:], sensitive_environment),
+                "stderr_tail": redact_text(p.stderr[-5000:], sensitive_environment),
                 "status": "PASS" if p.returncode == 0 else "FAIL"}
     except subprocess.TimeoutExpired:
-        return {"command": argv, "started": began, "status": "FAIL", "error": "timeout"}
+        return {"command": redact_argv(argv, sensitive_environment), "started": began,
+                "status": "FAIL", "error": "timeout"}
     except OSError as e:
         return {"command": argv, "started": began, "status": "BLOCKED",
-                "error": e.__class__.__name__ + ": " + str(e)}
+                "error": redact_text(e.__class__.__name__ + ": " + str(e), sensitive_environment)}
 
 
 def parse_command(value: str | None) -> list[str] | None:
@@ -152,14 +156,15 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
     task_id = contract["task_id"]
     folder = repo / ".ai-native" / "runs" / task_id / f"attempt-{attempt:02}"
     folder.mkdir(parents=True, exist_ok=True)
-    env = os.environ.copy()
-    env.update({"AI_NATIVE_TASK_ID": task_id, "AI_NATIVE_ATTEMPT": str(attempt),
+    parent_env = os.environ.copy()
+    protocol = {"AI_NATIVE_TASK_ID": task_id, "AI_NATIVE_ATTEMPT": str(attempt),
                 "AI_NATIVE_CONTRACT": str((folder / "contract.json").resolve()),
-                "AI_NATIVE_FEEDBACK": str((folder.parent / "latest.json").resolve())})
+                "AI_NATIVE_FEEDBACK": str((folder.parent / "latest.json").resolve())}
     save_json(folder / "contract.json", contract)
     execution = None
     if executor:
-        execution = call_argv(executor, repo, env, min(300, max(1, deadline - time.monotonic())))
+        execution = call_argv(executor, repo, child_environment("executor", parent_env, protocol),
+                              min(300, max(1, deadline - time.monotonic())), parent_env)
         save_json(folder / "executor.json", execution)
         if execution["status"] != "PASS":
             outcome = "BLOCKED" if execution["status"] == "BLOCKED" else "REWORK"
@@ -172,7 +177,8 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
         if time.monotonic() >= deadline:
             gates.append({"id": gate["id"], "level": gate["level"], "status": "BLOCKED", "error": "time budget reached"})
             continue
-        outcome = call_argv(gate["command"], repo, env, min(gate.get("timeout_seconds", 180), max(1, deadline - time.monotonic())))
+        outcome = call_argv(gate["command"], repo, child_environment("gate", parent_env, protocol),
+                            min(gate.get("timeout_seconds", 180), max(1, deadline - time.monotonic())), parent_env)
         outcome.update({"id": gate["id"], "level": gate["level"], "required": gate.get("required", True)})
         gates.append(outcome)
     for gate in gates:
@@ -194,9 +200,11 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
         return record(folder, {"verdict": "NOT_VERIFIED", "next_action": "Configure an independent reviewer command",
                                "reason": "No external reviewer was invoked", "attempt": attempt, "snapshot": snapshot,
                                "failed_required_gates": [g["id"] for g in req_failures]})
-    env.update({"AI_NATIVE_REVIEW_PACKET": str((folder / "review_packet.json").resolve()),
-                "AI_NATIVE_REVIEW_RESULT": str((folder / "review_result.json").resolve())})
-    rv = call_argv(reviewer, repo, env, min(240, max(1, deadline - time.monotonic())))
+    review_protocol = {**protocol,
+                       "AI_NATIVE_REVIEW_PACKET": str((folder / "review_packet.json").resolve()),
+                       "AI_NATIVE_REVIEW_RESULT": str((folder / "review_result.json").resolve())}
+    rv = call_argv(reviewer, repo, child_environment("reviewer", parent_env, review_protocol),
+                   min(240, max(1, deadline - time.monotonic())), parent_env)
     save_json(folder / "reviewer_process.json", rv)
     if rv["status"] != "PASS":
         return record(folder, {"verdict": "BLOCKED" if rv["status"] == "BLOCKED" else "NOT_VERIFIED",
@@ -210,10 +218,17 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
             raise ValueError("reviewer reviewed wrong snapshot fingerprint")
         if response.get("reviewed_contract_hash") != packet["contract_hash"]:
             raise ValueError("reviewer reviewed wrong contract hash")
-        if not isinstance(response.get("findings"), list) or not isinstance(response.get("next_action"), str):
+        if (not isinstance(response.get("findings"), list)
+                or not all(isinstance(item, str) for item in response["findings"])
+                or not isinstance(response.get("next_action"), str)):
             raise ValueError("reviewer must supply findings array and next_action")
         if work_snapshot(repo)["fingerprint"] != snapshot["fingerprint"]:
             raise ValueError("repository changed while reviewer was running")
+        response["findings"] = [redact_text(item, parent_env) for item in response["findings"]]
+        response["next_action"] = redact_text(response["next_action"], parent_env)
+        response = {key: response[key] for key in ("verdict", "reviewed_fingerprint",
+                    "reviewed_contract_hash", "findings", "next_action")}
+        save_json(folder / "review_result.json", response)
         reviewer_verdict = response["verdict"]
         outcome = reviewer_verdict
         if req_failures and outcome == "PASS":
@@ -227,7 +242,7 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
         return record(folder, response)
     except (OSError, ValueError, json.JSONDecodeError) as e:
         return record(folder, {"verdict": "NOT_VERIFIED", "next_action": "Fix invalid or stale review evidence",
-                               "reason": str(e), "attempt": attempt, "snapshot": snapshot,
+                               "reason": redact_text(str(e), parent_env), "attempt": attempt, "snapshot": snapshot,
                                "reviewer_process": rv, "gate_source_fingerprint": pre_gate_snapshot["fingerprint"]})
 
 

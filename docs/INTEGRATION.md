@@ -69,3 +69,117 @@ python C:\path\to\ai-native-engineering\\scripts\\ai_native.py cycle --repo C:\p
 Change actual installed model selection through `AI_NATIVE_EXECUTOR_MODEL`, `AI_NATIVE_REVIEWER_MODEL`, and corresponding `_EFFORT` env vars. Verify the resulting Codex session activity. This wrapper uses `codex exec --model ... --sandbox ... --output-schema ... --output-last-message ...` as documented by the Codex non-interactive workflow. The reviewer is sandboxed read-only; the controller rejects a stale fingerprint or a reviewer process modifying the tracked source.
 
 **Security and billing:** this launches real model sessions consuming the account/API allowance where available. Authenticate through Codex itself, not by committing tokens. Run on a small disposable branch first. Never invoke it with untrusted task contracts, which contain executable gate commands.
+
+
+## 8. Subprocess credential scope and log redaction
+
+The controller now constructs separate child environments for executor, gate and
+reviewer processes. It passes ordinary runtime variables (PATH, HOME,
+JAVA_HOME and ANDROID_SDK_ROOT), its own task protocol fields, and the selected
+role's model configuration. It does **not** copy arbitrary API tokens from the
+parent process. For a role that explicitly needs a secret, grant only the
+needed variable names, not the values, with a comma-separated allowlist:
+
+
+```bash
+export AI_NATIVE_EXECUTOR_ENV_ALLOWLIST=OPENAI_API_KEY
+export AI_NATIVE_REVIEWER_ENV_ALLOWLIST=REVIEWER_API_KEY
+# Only if a verification command truly needs credentials:
+export AI_NATIVE_GATE_ENV_ALLOWLIST=TEST_SERVICE_TOKEN
+```
+
+On Windows PowerShell set the AI_NATIVE_EXECUTOR_ENV_ALLOWLIST environment
+variable to OPENAI_API_KEY (and correspondingly for other roles). Environment
+variable names are checked; wildcards are rejected. CLI commands that
+authenticate using files under HOME still have access to those files: separate
+HOME/profile directories, OS users, sandbox permissions and file/network
+restrictions are required for genuine credential and reviewer isolation.
+Set AI_NATIVE_REVIEWER_HOME (and optionally AI_NATIVE_EXECUTOR_HOME) to
+separate credential-profile directories if your CLI loads credentials from HOME.
+The runtime does not create or authenticate those profiles for you. The
+model role string or read-only prompt is never an authentication boundary.
+
+Controller command logs, stderr/stdout excerpts and reviewer findings redact
+recognized credential patterns and known sensitive parent environment values.
+This is defense in depth; do not print secrets in arbitrary formats or supply
+them in argv, specs or prompts. Check target-project artifact retention
+and permissions. Authentication remains an explicit deployment prerequisite.
+
+## 9. Task merge is not project release
+
+The governance eligible command checks the exact task under review, mandatory
+requirement evidence, current fingerprint and approved scope; it does not
+pretend that all unrelated work has finished. To require PROJECT RELEASE
+readiness, additionally provide a verified work registry:
+
+
+```bash
+python3 scripts/governance.py eligible \
+  --repo /path/to/project \
+  --contract /path/to/task.json \
+  --requirements /path/to/project/verification/requirements.json \
+  --release-registry /path/to/project/verification/work.json
+```
+
+A release requires every frontier item to be terminal and every PASS to
+reference actual JSON evidence files under .ai-native/ with a matching
+source_fingerprint, PASS status and exact SHA-256, plus no unresolved human
+or external tasks. The supervisor records each passing item's contract_hash;
+its evidence descriptor binds the task ID and contract hash to the exact
+latest.json review report through report_path and report_sha256. The release
+gate checks the report's own PASS, source fingerprint, reviewed contract hash,
+and TASK_VERIFIED control-plane decision. Reusing another task's proof or
+changing the reviewed report invalidates release evidence. Prior PASS files
+become stale when the source changes. Missing/invalid registry data fails
+closed. These hashes prove consistency and integrity, not that a trusted
+hardware runner actually executed the test. This CLI still does not
+authenticate human attestations, establish physical-device provenance, or
+configure hosted branch protection.
+
+## 10. Verification levels
+
+- The unittest command below tests the controller and a full
+  test-double-backed external process cycle.
+- A successful GitHub Actions job proves that the checked-out controller
+  revision passed those tests in the workflow runner.
+- A live authenticated Executor/Reviewer run in a disposable target worktree
+  is still required to certify provider integration and actual model selection.
+- Configure GitHub rulesets and required status checks separately. A workflow
+  YAML file does not make a branch protected.
+
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+
+## 11. Bounded durable external supervisor
+
+Use the external supervisor for sessions spanning multiple tasks. It consumes a
+trusted, explicit work registry, not a model-invented backlog. Each autonomous
+entry must include contract_path and a matching task_id, in addition to the
+required id, owner, status, action and depends_on fields.
+
+**Keep the mutable runtime registry outside the target Git tree or under a
+gitignored folder such as .ai-native/work.json.** Modifying a tracked registry
+after review would invalidate the source fingerprint. The controller rejects
+tracked or non-ignored runtime registries in the worktree.
+
+
+```bash
+python3 scripts/supervisor.py --repo /path/to/project \
+  --registry /path/to/project/.ai-native/work.json \
+  --max-tasks 10 --max-seconds 1800
+```
+
+The supervisor creates an exclusive lock and checkpoints every task. On
+restart, a RUNNING task advances to PASS only if its current exact-tree,
+exact-contract independent review is valid; otherwise it becomes
+BLOCKED_EXTERNAL for diagnosis while unrelated work may proceed. On restart it automatically reclaims a stale
+lock only when the previous process ID no longer exists. If the lock owner
+cannot be verified, it refuses concurrent execution; investigate before
+manual intervention. This design is synchronous and single-host;
+it does not claim distributed scheduling or exactly-once process execution.
+A trusted operator/CI must keep the runtime registry and requirements outside
+Executor write permissions. The optional Claude Stop hook is not a replacement
+for this external driver.

@@ -8,6 +8,41 @@ The optional [portable Stop-hook continuation](docs/HOOK_CYCLE.md) carries the A
 
 The optional Claude Code pre-tool guard (`scripts/pre_tool_guard.py`) can block out-of-scope file edits and common destructive shell commands **before** execution. It is opt-in and defense-in-depth, not a full OS sandbox; see the [pre-tool guard guide](docs/PRE_TOOL_GUARD.md).
 
+## New runtime hardening and durable supervision
+
+- The controller uses role-specific subprocess environment allowlists and
+  redacts common credentials from saved command output. A file/OS sandbox is
+  **still required** for real security separation.
+- The external supervisor, unlike the optional Stop hook, runs each
+  explicitly authorized contract, records checkpoints and reconciles
+  interrupted jobs only against current independent evidence. It never
+  invents tasks or merges changes. Work registries need one contract_path
+  per autonomous task.
+- Task merge eligibility and project release eligibility are separate.
+  Project release requires the optional --release-registry gate and an
+  independently maintained complete, evidence-backed frontier.
+- Test-double-backed process integration checks are included in the test
+  suite. They are not evidence that an authenticated model or hardware
+  runner has been exercised.
+
+Example bounded supervisor invocation, after configuring *real* external
+Executor/Reviewer CLIs and a trusted registry:
+
+
+```bash
+python3 scripts/supervisor.py --repo /path/to/project \
+  --registry /path/to/project/.ai-native/work.json \
+  --max-tasks 10 --max-seconds 1800
+```
+
+The mutable runtime registry must be outside the project or in a gitignored
+path such as .ai-native/work.json; tracked source files are rejected to avoid
+invalidating reviewed source fingerprints. The canonical task definitions and
+independent requirements can remain tracked, but runtime status belongs to
+the external supervisor, not the Executor. A task's contract_path may be absolute or relative to
+the registry directory and must identify a contract with the same task_id.
+See docs/INTEGRATION.md for credential allowlists and release gates.
+
 ## Verify this repository
 
 ```bash
