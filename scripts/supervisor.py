@@ -17,7 +17,9 @@ import time
 from pathlib import Path
 
 from ai_native import load_json, save_json, work_snapshot
+from capabilities import load_capabilities, missing_capabilities
 from control_plane import canonical_hash, decide_frontier, verify_decision
+from delivery_gate import check_delivery
 from frontier import check
 
 CONTROLLER = Path(__file__).resolve().with_name("ai_native.py")
@@ -87,7 +89,9 @@ def write_registry(path: Path, data: dict, expected_hash: str) -> None:
     save_json(path, data)
 
 
-def reconcile_interrupted(repo: Path, registry_path: Path, data: dict) -> dict:
+def reconcile_interrupted(repo: Path, registry_path: Path, data: dict,
+                          require_remote: bool = False, delivery_remote: str = "origin",
+                          delivery_branch: str | None = None) -> dict:
     """Never silently claim success when a previous run was interrupted."""
     running = [item for item in data["work"] if item["status"] == "RUNNING"]
     if not running:
@@ -99,15 +103,83 @@ def reconcile_interrupted(repo: Path, registry_path: Path, data: dict) -> dict:
             passed = verified_task(repo, contract, item["id"])
         except (OSError, ValueError, KeyError, TypeError):
             passed = False
-        if passed:
+        delivered = (not require_remote or not passed or
+                     check_delivery(repo, delivery_remote, delivery_branch)["status"] == "PASS")
+        if passed and delivered:
             item["status"] = "PASS"
             item.update({"contract_hash": canonical_hash(contract)})
             item["evidence"] = [task_evidence_reference(repo, contract, item["id"])]
+            item.pop("blocker_kind", None)
             item.pop("blocked_by", None)
+        elif passed and not delivered:
+            item["status"] = "BLOCKED_EXTERNAL"
+            item["blocker_kind"] = "delivery"
+            item["blocked_by"] = "interrupted task locally reviewed but not verified on remote"
         else:
             item["status"] = "BLOCKED_EXTERNAL"
             item["blocked_by"] = "interrupted execution without current verified evidence; human diagnosis required"
     write_registry(registry_path, data, before)
+    return data
+
+
+def reconcile_capability_blockers(registry_path: Path, data: dict,
+                                  available: dict[str, bool]) -> dict:
+    """Block only tasks with missing resources; requeue only our own blockers."""
+    before = canonical_hash(data)
+    for item in data["work"]:
+        if item.get("owner") != "AUTONOMOUS":
+            continue
+        if item["status"] not in {"NOT_RUN", "FAIL", "BLOCKED_EXTERNAL"}:
+            continue
+        managed = item.get("blocker_kind") == "capability"
+        if item["status"] == "BLOCKED_EXTERNAL" and not managed:
+            continue  # Never remove a human, permission, or other external blocker.
+        missing = missing_capabilities(item, available)
+        if missing:
+            item["status"] = "BLOCKED_EXTERNAL"
+            item["blocker_kind"] = "capability"
+            item["blocked_capabilities"] = missing
+            item["blocked_by"] = "unavailable capabilities: " + ", ".join(missing)
+        elif managed:
+            item["status"] = "NOT_RUN"
+            item.pop("blocker_kind", None)
+            item.pop("blocked_capabilities", None)
+            item.pop("blocked_by", None)
+    if canonical_hash(data) != before:
+        write_registry(registry_path, data, before)
+    return data
+
+
+def reconcile_delivery_blockers(repo: Path, registry_path: Path, data: dict,
+                                remote: str, branch: str | None) -> dict:
+    """Recognize an independently completed push on a previously blocked task."""
+    pending = [item for item in data["work"]
+               if item.get("blocker_kind") == "delivery" and item["status"] == "BLOCKED_EXTERNAL"]
+    if not pending:
+        return data
+    delivery = check_delivery(repo, remote, branch)
+    if delivery["status"] != "PASS":
+        return data
+    before = canonical_hash(data)
+    for item in pending:
+        try:
+            _, contract = resolve_contract(registry_path, item)
+            passed = verified_task(repo, contract, item["id"])
+        except (OSError, ValueError, KeyError, TypeError):
+            passed = False
+        if passed:
+            item["status"] = "PASS"
+            item["contract_hash"] = canonical_hash(contract)
+            item["evidence"] = [task_evidence_reference(repo, contract, item["id"])]
+            item.pop("blocker_kind", None)
+            item.pop("blocked_by", None)
+            save_json(repo / ".ai-native/supervisor-checkpoint.json",
+                      {"schema_version": 1, "task_id": item["id"],
+                       "contract_hash": canonical_hash(contract),
+                       "state": "VERIFIED", "remote_delivery": delivery,
+                       "evidence": ".ai-native/runs/" + item["id"] + "/latest.json"})
+    if canonical_hash(data) != before:
+        write_registry(registry_path, data, before)
     return data
 
 
@@ -155,7 +227,9 @@ def ensure_registry_is_runtime_state(repo: Path, registry_path: Path) -> None:
                          "(recommended: .ai-native/work.json)")
 
 
-def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> int:
+def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int,
+        available: dict[str, bool] | None = None, require_remote: bool = False,
+        delivery_remote: str = "origin", delivery_branch: str | None = None) -> int:
     ensure_registry_is_runtime_state(repo, registry_path)
     fd, lock_path = acquire_lock(repo)
     began = time.monotonic()
@@ -164,7 +238,12 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
         data = load_json(registry_path)
         if check(data):
             raise ValueError("invalid work registry: " + "; ".join(check(data)[:5]))
-        reconcile_interrupted(repo, registry_path, data)
+        reconcile_interrupted(repo, registry_path, data, require_remote,
+                              delivery_remote, delivery_branch)
+        reconcile_capability_blockers(registry_path, data, available or {})
+        if require_remote:
+            reconcile_delivery_blockers(repo, registry_path, data, delivery_remote,
+                                        delivery_branch)
         while count < max_tasks and time.monotonic() - began < max_seconds:
             data = load_json(registry_path)
             errors = check(data)
@@ -174,6 +253,14 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
             if not verify_decision(decision):
                 raise ValueError("frontier decision checksum invalid")
             if decision["action"] != "CONTINUE_FRONTIER":
+                if decision["action"] == "STOP_COMPLETE" and require_remote:
+                    delivery = check_delivery(repo, delivery_remote, delivery_branch)
+                    if delivery["status"] != "PASS":
+                        print(json.dumps({"action": "DELIVERY_NOT_VERIFIED",
+                                          "status": delivery["status"],
+                                          "reason": delivery["reason"],
+                                          "tasks_attempted": count}))
+                        return 3
                 print(json.dumps({"action": decision["action"],
                                   "tasks_attempted": count, "reasons": decision["reasons"]}))
                 return 0 if decision["action"] == "STOP_COMPLETE" else 3
@@ -209,6 +296,11 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
                 )
                 passed = result.returncode == 0 and verified_task(repo, contract, item_id)
                 diagnostic = "controller exit " + str(result.returncode)
+                if passed and require_remote:
+                    delivery = check_delivery(repo, delivery_remote, delivery_branch)
+                    if delivery["status"] != "PASS":
+                        passed = False
+                        diagnostic = "remote delivery " + delivery["status"] + ": " + str(delivery["reason"])
             except subprocess.TimeoutExpired:
                 passed = False
                 diagnostic = "supervisor time budget exceeded"
@@ -225,6 +317,8 @@ def run(repo: Path, registry_path: Path, max_tasks: int, max_seconds: int) -> in
             else:
                 current_item["status"] = "BLOCKED_EXTERNAL"
                 current_item["blocked_by"] = diagnostic + "; inspect current gate/review artifacts"
+                if require_remote and diagnostic.startswith("remote delivery "):
+                    current_item["blocker_kind"] = "delivery"
             current_item.pop("lease_expired", None)
             write_registry(registry_path, current, canonical_hash(data))
             save_json(repo / ".ai-native/supervisor-checkpoint.json",
@@ -244,6 +338,11 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--registry", required=True)
+    parser.add_argument("--capabilities", help="trusted runner-owned JSON capability snapshot")
+    parser.add_argument("--require-remote", action="store_true",
+                        help="do not mark PASS until the reviewed commit exists on the remote")
+    parser.add_argument("--delivery-remote", default="origin")
+    parser.add_argument("--delivery-branch", help="authorized remote branch (default current local branch)")
     parser.add_argument("--max-tasks", type=int, default=10)
     parser.add_argument("--max-seconds", type=int, default=1800)
     args = parser.parse_args(argv)
@@ -251,8 +350,10 @@ def main(argv=None) -> int:
         parser.error("bounded max-tasks 1..100 and max-seconds 1..86400 required")
     try:
         return run(Path(args.repo).resolve(), Path(args.registry).resolve(),
-                   args.max_tasks, args.max_seconds)
-    except (OSError, ValueError, RuntimeError) as exc:
+                   args.max_tasks, args.max_seconds,
+                   load_capabilities(Path(args.capabilities).resolve() if args.capabilities else None),
+                   args.require_remote, args.delivery_remote, args.delivery_branch)
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print("SUPERVISOR_BLOCKED: " + str(exc), file=sys.stderr)
         return 5
 

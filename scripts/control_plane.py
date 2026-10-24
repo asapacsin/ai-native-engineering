@@ -178,6 +178,11 @@ def _validate_work(work: list[dict]) -> list[str]:
             errors.append(f"dependencies_must_be_list:{ident}")
         elif any(not isinstance(dep, str) or not dep for dep in item["depends_on"]):
             errors.append(f"invalid_dependency_id:{ident}")
+        required = item.get("requires", [])
+        if (not isinstance(required, list) or any(
+                not isinstance(name, str) or not name.strip() for name in required)
+                or len(required) != len(set(required))):
+            errors.append(f"invalid_required_capabilities:{ident}")
         priority = item.get("priority", 100)
         if isinstance(priority, bool) or not isinstance(priority, (int, float)) or not math.isfinite(priority):
             errors.append(f"priority_must_be_finite_number:{ident}")
