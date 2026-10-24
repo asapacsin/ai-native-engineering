@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from supervisor import reconcile_interrupted
+from supervisor import reconcile_interrupted, reconcile_capability_blockers
 from governance import release_evidence_issues
 from ai_native import work_snapshot
 
@@ -65,13 +65,14 @@ class SupervisorTests(unittest.TestCase):
     def save_registry(self):
         self.registry.write_text(json.dumps({"schema_version": 1, "work": [self.item]}), encoding="utf-8")
 
-    def drive(self):
+    def drive(self, extra_args=None):
         env = os.environ.copy()
         env["AI_NATIVE_EXECUTOR_CMD"] = f'"{sys.executable}" "{self.executor}"'
         env["AI_NATIVE_REVIEWER_CMD"] = f'"{sys.executable}" "{self.reviewer}"'
         return subprocess.run(
             [sys.executable, str(SUPERVISOR), "--repo", str(self.repo),
-             "--registry", str(self.registry), "--max-tasks", "3", "--max-seconds", "60"],
+             "--registry", str(self.registry), "--max-tasks", "3", "--max-seconds", "60",
+             *(extra_args or [])],
             cwd=ROOT, env=env, capture_output=True, text=True, timeout=70)
 
     def test_drives_verified_task_to_terminal_state(self):
@@ -110,6 +111,54 @@ class SupervisorTests(unittest.TestCase):
         after = json.loads(self.registry.read_text())["work"][0]
         self.assertEqual(after["status"], "BLOCKED_EXTERNAL")
         self.assertIn("interrupted", after["blocked_by"])
+
+    def test_missing_gpu_blocks_only_gpu_task_and_runs_independent_cpu_work(self):
+        gpu = {"id": "gpu-e2e", "owner": "AUTONOMOUS", "status": "NOT_RUN",
+               "action": "Run actual GPU inference", "depends_on": [],
+               "requires": ["nvidia_gpu", "model_weights"], "priority": 1}
+        self.item["priority"] = 2
+        self.registry.write_text(json.dumps({"schema_version": 1,
+                                             "work": [gpu, self.item]}), encoding="utf-8")
+        capabilities = self.base / "capabilities.json"
+        capabilities.write_text(json.dumps({"schema_version": 1, "capabilities": {
+            "nvidia_gpu": False, "model_weights": False, "ffmpeg": True}}), encoding="utf-8")
+        result = self.drive(["--capabilities", str(capabilities)])
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        tasks = {entry["id"]: entry for entry in json.loads(self.registry.read_text())["work"]}
+        self.assertEqual(tasks["change"]["status"], "PASS")
+        self.assertEqual(tasks["gpu-e2e"]["status"], "BLOCKED_EXTERNAL")
+        self.assertEqual(tasks["gpu-e2e"]["blocker_kind"], "capability")
+        self.assertEqual(tasks["gpu-e2e"]["blocked_capabilities"],
+                         ["model_weights", "nvidia_gpu"])
+        self.assertIn("WAIT_EXTERNAL", result.stdout)
+
+        # A later B200 environment may requeue this task without altering CPU evidence.
+        current = json.loads(self.registry.read_text())
+        reconcile_capability_blockers(self.registry, current,
+                                      {"nvidia_gpu": True, "model_weights": True})
+        updated = {entry["id"]: entry for entry in json.loads(self.registry.read_text())["work"]}
+        self.assertEqual(updated["gpu-e2e"]["status"], "NOT_RUN")
+        self.assertNotIn("blocked_by", updated["gpu-e2e"])
+        self.assertEqual(updated["change"]["status"], "PASS")
+
+    def test_capability_gate_does_not_clear_unrelated_external_blockers(self):
+        self.item["status"] = "BLOCKED_EXTERNAL"
+        self.item["blocked_by"] = "credential approval required"
+        self.item["requires"] = ["nvidia_gpu"]
+        self.save_registry()
+        reconcile_capability_blockers(self.registry, json.loads(self.registry.read_text()),
+                                      {"nvidia_gpu": True})
+        updated = json.loads(self.registry.read_text())["work"][0]
+        self.assertEqual(updated["status"], "BLOCKED_EXTERNAL")
+        self.assertEqual(updated["blocked_by"], "credential approval required")
+
+    def test_require_remote_rejects_local_only_success(self):
+        result = self.drive(["--require-remote"])
+        self.assertEqual(result.returncode, 3, result.stdout + result.stderr)
+        updated = json.loads(self.registry.read_text())["work"][0]
+        self.assertEqual(updated["status"], "BLOCKED_EXTERNAL")
+        self.assertEqual(updated["blocker_kind"], "delivery")
+        self.assertIn("remote delivery", updated["blocked_by"])
 
     def test_rejects_tracked_mutable_registry(self):
         tracked = self.repo / "verification/work.json"
