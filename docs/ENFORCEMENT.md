@@ -62,7 +62,21 @@ The current implementation provides **local procedural enforcement**, not a host
 
    The referenced trace JSON must contain `{"observed_terminal":"ARRIVED","ended_naturally":true,"source_fingerprint":"<latest reviewed fingerprint>"}`. It must be generated from the actual test run, not authored as a fake PASS record. **Checksums and claims still cannot prove that physical-device, GPU or external service execution was genuine**; keep the domain-specific runner/CI attestation. Do not treat this CLI alone as sufficient hardware evidence.
 
-6. Merge **only** after `ELIGIBLE`, CI and appropriate review approve the exact branch tip. This script does not execute merges. Put it into a protected GitHub Actions required check / branch rule for real integration enforcement; absent branch protection, GitHub still permits bypassing it.
+6. **Deliver the exact reviewed commit to the authorized remote branch** and verify that the remote references it. Replace `exec/example` with the actual approved branch; no force push or unapproved merge:
+
+   ```sh
+   git status --short
+   git branch --show-current
+   git remote -v
+   git diff --check
+   git rev-parse HEAD
+   git push -u origin HEAD:exec/example
+   git ls-remote --heads origin exec/example
+   ```
+
+   The remote SHA reported by `ls-remote` must equal local `HEAD`. Record repository, remote branch and commit URL in the handoff. If the push or SHA check fails, report BLOCKED/NOT_VERIFIED and keep the local commit for recovery; do not terminate as successfully delivered. This is **not yet automatically enforced** by the local tools. Follow the read-only/no-change and explicit local-only exceptions in `AGENTS.md`.
+
+7. Merge **only** after `ELIGIBLE`, CI and appropriate review approve the exact pushed branch tip. This script does not execute merges. Put it into a protected GitHub Actions required check / branch rule for real integration enforcement; absent branch protection, GitHub still permits bypassing it.
 
 ## Autonomous frontier and human queue
 
