@@ -11,6 +11,8 @@
 9. Results must bind to actual source revision/worktree fingerprint. Compile != runtime; JVM != device; offline model clip != live performance. Record evidence level and what was NOT verified.
 10. No secrets in reports, logs, commits, agent prompts or model inputs. Never claim this skeleton has called a real LLM without an explicitly configured reviewer/executor CLI.
 
+11. **Remote delivery is required before closing a code-changing task.** Work on the authorized branch, commit only approved task-scoped changes with a meaningful message, rerun required gates and independent review against the exact committed tip, then push that tip to the configured remote. Verify that the remote branch resolves to the same SHA as local `HEAD` (e.g., `git ls-remote --heads origin <branch>` versus `git rev-parse HEAD`). A Codex/agent run must not claim COMPLETE/PASS or terminate as successfully delivered while its implementation is uncommitted, unpushed, or unverified on the remote. Report repo, branch, commit SHA, verification and any unrelated local changes in the handoff. If credentials, network access, branch rules, review or permissions block delivery, report **BLOCKED/NOT_VERIFIED** with the exact reason and local SHA instead of claiming success. Never force-push, bypass branch protection, merge without authorization, commit secrets, or change unrelated files. No-change/read-only tasks need no artificial commit, and explicit user instructions to keep changes local take precedence.
+
 Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 
 ## Governance and continuation entry points
