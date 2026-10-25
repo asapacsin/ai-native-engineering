@@ -107,6 +107,8 @@ and permissions. Authentication remains an explicit deployment prerequisite.
 
 ## 9. Task merge is not project release
 
+Both task-merge and project-release eligibility require an independently owned requirements manifest. The governance Python API must fail closed when that manifest is absent or when the saved review has a mismatched task ID, even if a separate task cycle has reported PASS.
+
 The governance eligible command checks the exact task under review, mandatory
 requirement evidence, current fingerprint and approved scope; it does not
 pretend that all unrelated work has finished. To require PROJECT RELEASE
