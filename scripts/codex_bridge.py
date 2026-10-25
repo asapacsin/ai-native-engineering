@@ -61,6 +61,21 @@ def role_prompt(role: str, payload: dict, feedback: dict | None = None) -> str:
             "Review packet:\n" + json.dumps(payload, indent=2))
 
 
+def role_timeout_seconds(role: str) -> int:
+    """Honor the controller's smaller step budget; leave time for cleanup."""
+    default = 290 if role == "executor" else 230
+    configured = os.environ.get("AI_NATIVE_STEP_TIMEOUT_SECONDS")
+    if configured is None:
+        return default
+    try:
+        seconds = int(configured)
+    except ValueError as exc:
+        raise ValueError("AI_NATIVE_STEP_TIMEOUT_SECONDS must be an integer") from exc
+    if not 1 <= seconds <= 86400:
+        raise ValueError("AI_NATIVE_STEP_TIMEOUT_SECONDS must be in 1..86400")
+    return seconds
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("role", choices=["executor", "reviewer"])
@@ -79,7 +94,7 @@ def main(argv=None):
         prompt = role_prompt("executor", contract, feedback)
         with tempfile.TemporaryDirectory(prefix="ai-native-exec-") as directory:
             output = Path(directory) / "executor-response.txt"
-            result = subprocess.run(codex_command("executor", output), input=prompt, text=True, timeout=180)
+            result = subprocess.run(codex_command("executor", output), input=prompt, text=True, timeout=role_timeout_seconds("executor"))
             return result.returncode
     packet_path, result_path = os.environ.get("AI_NATIVE_REVIEW_PACKET"), os.environ.get("AI_NATIVE_REVIEW_RESULT")
     if not packet_path or not result_path:
@@ -91,7 +106,7 @@ def main(argv=None):
         schema_path = Path(directory) / "schema.json"
         schema_path.write_text(json.dumps(REVIEW_SCHEMA), encoding="utf-8")
         result = subprocess.run(codex_command("reviewer", Path(result_path).resolve(), schema_path),
-                                input=prompt, text=True, timeout=180)
+                                input=prompt, text=True, timeout=role_timeout_seconds("reviewer"))
     return result.returncode
 
 
