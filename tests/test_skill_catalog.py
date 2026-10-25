@@ -38,7 +38,7 @@ class SkillCatalogTests(unittest.TestCase):
     def test_executor_receives_requested_skill_in_foreign_project(self):
         prompt = role_prompt("executor", contract("verify"))
         self.assertIn("Selected portable skill: verify", prompt)
-        self.assertIn("Fix a reproduced defect", prompt)
+        self.assertIn("Evidence-fresh verification", prompt)
         self.assertIn("Task contract:", prompt)
         self.assertIn("Feedback from prior attempt", prompt)
 

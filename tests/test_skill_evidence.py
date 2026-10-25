@@ -33,6 +33,22 @@ class SkillEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             install(self.repo, ["verify"])
 
+    def test_rejects_symlinked_parent_and_partial_batch(self):
+        other = self.repo / "unrelated"
+        other.mkdir()
+        (self.repo / ".agents").symlink_to(other, target_is_directory=True)
+        with self.assertRaises(ValueError):
+            install(self.repo, ["verify"])
+        self.assertEqual(list(other.iterdir()), [])
+        (self.repo / ".agents").unlink()
+        install(self.repo, ["verify"])
+        path = self.repo / ".agents" / "skills" / "verify" / "SKILL.md"
+        path.write_text("conflicting existing skill")
+        # Reject entire batch before installing the earlier token skill.
+        with self.assertRaises(ValueError):
+            install(self.repo, ["token-efficient-task", "verify"])
+        self.assertFalse((self.repo / ".agents" / "skills" / "token-efficient-task").exists())
+
     def test_bad_install_name(self):
         with self.assertRaises(ValueError):
             install(self.repo, ["../verify"])
