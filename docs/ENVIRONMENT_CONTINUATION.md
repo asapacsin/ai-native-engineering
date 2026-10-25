@@ -76,6 +76,11 @@ cleared by a GPU becoming available.
 
 ## Mandatory stop audit
 
+Apply the [parent-deliverable completion rules](DELIVERABLE_CONTINUATION.md):
+an artifact checkpoint or reviewer dispatch cannot replace the full requested
+acceptance. In interactive chats, use progress updates while continuing work;
+a final response ends the active execution turn.
+
 - An Executor ending its process is **not** a terminal authorization.
 - Continue while `decide_frontier` reports `CONTINUE_FRONTIER` and a bounded
   authorized autonomous task remains, including CPU work unrelated to the GPU.
