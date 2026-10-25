@@ -24,6 +24,24 @@ class CodexBridgeTests(unittest.TestCase):
         self.assertEqual(args[args.index("--sandbox") + 1], "read-only")
         self.assertIn("--output-schema", args)
 
+    def test_role_timeout_defaults_match_controller_caps(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(bridge.role_timeout_seconds("executor"), 290)
+            self.assertEqual(bridge.role_timeout_seconds("reviewer"), 230)
+
+    def test_role_timeout_honors_controller_budget(self):
+        with patch.dict(os.environ, {"AI_NATIVE_STEP_TIMEOUT_SECONDS": "37"}, clear=True):
+            self.assertEqual(bridge.role_timeout_seconds("executor"), 37)
+            self.assertEqual(bridge.role_timeout_seconds("reviewer"), 37)
+
+    def test_invalid_role_timeout_fails_closed(self):
+        for value in ("0", "-1", "nan", "12.5", "86401"):
+            with self.subTest(value=value), patch.dict(
+                os.environ, {"AI_NATIVE_STEP_TIMEOUT_SECONDS": value}, clear=True
+            ):
+                with self.assertRaises(ValueError):
+                    bridge.role_timeout_seconds("executor")
+
     def test_reviewer_schema_requires_fingerprint_and_verdict(self):
         self.assertEqual(set(bridge.REVIEW_SCHEMA["required"]),
                          {"verdict", "reviewed_fingerprint", "reviewed_contract_hash", "findings", "next_action"})

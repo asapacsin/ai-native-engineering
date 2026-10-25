@@ -125,7 +125,7 @@ def call_argv(argv: list[str], repo: Path, env: dict, timeout: float,
         return {"command": redact_argv(argv, sensitive_environment), "started": began,
                 "status": "FAIL", "error": "timeout"}
     except OSError as e:
-        return {"command": argv, "started": began, "status": "BLOCKED",
+        return {"command": redact_argv(argv, sensitive_environment), "started": began, "status": "BLOCKED",
                 "error": redact_text(e.__class__.__name__ + ": " + str(e), sensitive_environment)}
 
 
@@ -163,8 +163,12 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
     save_json(folder / "contract.json", contract)
     execution = None
     if executor:
-        execution = call_argv(executor, repo, child_environment("executor", parent_env, protocol),
-                              min(300, max(1, deadline - time.monotonic())), parent_env)
+        executor_timeout = min(300, max(1, deadline - time.monotonic()))
+        executor_protocol = {**protocol, "AI_NATIVE_STEP_TIMEOUT_SECONDS":
+                             str(max(1, int(executor_timeout) - 5))}
+        execution = call_argv(executor, repo,
+                              child_environment("executor", parent_env, executor_protocol),
+                              executor_timeout, parent_env)
         save_json(folder / "executor.json", execution)
         if execution["status"] != "PASS":
             outcome = "BLOCKED" if execution["status"] == "BLOCKED" else "REWORK"
@@ -193,9 +197,18 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
                                "attempt": attempt, "snapshot": snapshot,
                                "gate_source_fingerprint": pre_gate_snapshot["fingerprint"],
                                "failed_required_gates": [g["id"] for g in gates if g.get("required") and g["status"] != "PASS"]})
+    req_failures = [g for g in gates if g.get("required") and g["status"] != "PASS"]
+    if req_failures:
+        # A failed mandatory gate already disproves PASS. Avoid paying for a
+        # reviewer until deterministic evidence is sufficient for a review.
+        blocked = any(g["status"] == "BLOCKED" for g in req_failures)
+        return record(folder, {"verdict": "BLOCKED" if blocked else "REWORK",
+                               "next_action": "Resolve failed or unavailable required gates before review",
+                               "attempt": attempt, "snapshot": snapshot,
+                               "gate_source_fingerprint": pre_gate_snapshot["fingerprint"],
+                               "failed_required_gates": [g["id"] for g in req_failures]})
     packet = review_packet(contract, snapshot, gates, attempt)
     save_json(folder / "review_packet.json", packet)
-    req_failures = [g for g in gates if g.get("required") and g["status"] != "PASS"]
     if not reviewer:
         return record(folder, {"verdict": "NOT_VERIFIED", "next_action": "Configure an independent reviewer command",
                                "reason": "No external reviewer was invoked", "attempt": attempt, "snapshot": snapshot,
@@ -203,8 +216,10 @@ def attempt_cycle(repo: Path, contract: dict, attempt: int, executor: list[str] 
     review_protocol = {**protocol,
                        "AI_NATIVE_REVIEW_PACKET": str((folder / "review_packet.json").resolve()),
                        "AI_NATIVE_REVIEW_RESULT": str((folder / "review_result.json").resolve())}
+    reviewer_timeout = min(240, max(1, deadline - time.monotonic()))
+    review_protocol["AI_NATIVE_STEP_TIMEOUT_SECONDS"] = str(max(1, int(reviewer_timeout) - 5))
     rv = call_argv(reviewer, repo, child_environment("reviewer", parent_env, review_protocol),
-                   min(240, max(1, deadline - time.monotonic())), parent_env)
+                   reviewer_timeout, parent_env)
     save_json(folder / "reviewer_process.json", rv)
     if rv["status"] != "PASS":
         return record(folder, {"verdict": "BLOCKED" if rv["status"] == "BLOCKED" else "NOT_VERIFIED",
