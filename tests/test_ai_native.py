@@ -92,8 +92,8 @@ class AiNativeTests(unittest.TestCase):
         # A reviewer is unnecessary when a mandatory gate already failed.
         marker = self.repo / "reviewer-was-called.txt"
         self.reviewer_path.write_text(
-            "from pathlib import Path\\n"
-            "Path('reviewer-was-called.txt').write_text('unexpected')\\n",
+            "from pathlib import Path\n"
+            "Path('reviewer-was-called.txt').write_text('unexpected')\n",
             encoding="utf-8",
         )
         self.contract["gates"][0]["command"] = [sys.executable, "-c", "raise SystemExit(1)"]
@@ -107,8 +107,8 @@ class AiNativeTests(unittest.TestCase):
     def test_blocked_gate_redacts_cli_secrets_without_reviewer(self):
         marker = self.repo / "reviewer-was-called.txt"
         self.reviewer_path.write_text(
-            "from pathlib import Path\\n"
-            "Path('reviewer-was-called.txt').write_text('unexpected')\\n",
+            "from pathlib import Path\n"
+            "Path('reviewer-was-called.txt').write_text('unexpected')\n",
             encoding="utf-8",
         )
         secret = "must-never-appear-in-evidence"
