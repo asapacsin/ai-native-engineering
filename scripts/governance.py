@@ -326,6 +326,8 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None,
     review_pass = review_current = contract_current = required_gates_pass = requirements_pass = False
     try:
         latest = load_json(repo / ".ai-native" / "runs" / contract["task_id"] / "latest.json")
+        if latest.get("task_id") != contract["task_id"]:
+            issues.append("review evidence task_id does not match approved task")
         control_decision = latest.get("control_plane_decision", {})
         deterministic_pass = (control_decision.get("action") == "TASK_VERIFIED"
                               and verify_decision(control_decision))
@@ -343,13 +345,14 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None,
             issues.append("verification not bound to approved contract")
         if not required_gates_pass:
             issues.append("some required gates failed")
-        latest["task_id"] = contract["task_id"]
-        if requirements is not None:
+        # No caller may silently omit independently owned acceptance requirements.
+        # This applies to the Python API as well as the CLI and to both merge/release.
+        if requirements is None:
+            issues.append("independent requirements manifest is required for merge/release")
+        else:
             req_problems = required_evidence_issues(repo, requirements, latest)
             issues.extend(req_problems)
             requirements_pass = not req_problems
-        else:
-            requirements_pass = True
     except (OSError, ValueError):
         issues.append("no current end-state verification available")
     integration_state = {
