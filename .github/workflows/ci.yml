@@ -21,5 +21,6 @@ jobs:
       - name: Validate example contracts
         run: |
           python3 scripts/ai_native.py validate --contract examples/contract.json
+          python3 scripts/ai_native.py validate --contract examples/skill-contract.json
           python3 scripts/ai_native.py validate --contract adapters/aurel.json
           python3 scripts/ai_native.py validate --contract adapters/android.json

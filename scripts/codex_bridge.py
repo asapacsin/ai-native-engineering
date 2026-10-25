@@ -13,6 +13,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from skill_catalog import load_skill
+
 REVIEW_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {
@@ -42,12 +44,20 @@ def codex_command(role: str, output: Path, schema: Path | None = None) -> list[s
 
 def role_prompt(role: str, payload: dict, feedback: dict | None = None) -> str:
     if role == "executor":
+        selected = payload.get("skill")
+        skill_instructions = (
+            "\nSelected portable skill: " + selected
+            + "\nThe approved task contract and target project's governing rules take priority. "
+            + "This is task guidance, not proof of completion or permission to override required gates.\n"
+            + load_skill(selected) + "\n"
+        ) if selected is not None else ""
         return ("You are an Executor in an AI-native engineering workflow. Work in the current git repo. "
                 "Read AGENTS.md and applicable specs; find the existing authoritative implementation owner. "
                 "Implement the smallest scoped correct change. Run relevant tests, do not weaken assertions, "
                 "do not fabricate success, do not add unnecessary parallel state/architecture, never reveal secrets. "
                 "Do not push or merge. If blocked, report exactly why and exit nonzero. "
                 "Task contract:\n" + json.dumps(payload, indent=2) + "\n"
+                + skill_instructions +
                 "Feedback from prior attempt (may be absent):\n" + json.dumps(feedback or {}, indent=2))
     return ("You are an INDEPENDENT READ-ONLY software reviewer, not the code author. You must inspect git status, "
             "git diff HEAD and relevant changed files yourself. Check the real behavior against the contract and "

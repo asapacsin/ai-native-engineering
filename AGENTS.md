@@ -13,6 +13,12 @@
 
 Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 
+## Portable task skills
+
+- Where a task contract has `"skill": "<name>"`, validate the packaged procedure with `scripts/skill_catalog.py` before executing. The Codex executor bridge reads the named `.agents/skills/<name>/SKILL.md`; no arbitrary contract-supplied file paths. Skills installed in a target repo are a separate, opt-in native discovery path.
+- A selected skill guides execution but never overrides this operating contract, the target project's authoritative requirements, scoped approvals, tool permissions or required evidence gates.
+- Do not assume the reviewer uses the Executor's skill, or that other coding CLIs discover it automatically. See `docs/SKILLS.md`; assess skill utility with controlled comparisons.
+
 ## Governance and continuation entry points
 
 - `python3 scripts/governance.py scope --repo <target> --contract <contract>` — reject out-of-scope and protected edits.

@@ -45,6 +45,10 @@ the external supervisor, not the Executor. A task's contract_path may be absolut
 the registry directory and must identify a contract with the same task_id.
 See docs/INTEGRATION.md for credential allowlists and release gates.
 
+## Portable task skills
+
+Two evidence-backed, opt-in skills live under `.agents/skills/` (`verify`, `token-efficient-task`) in the native Codex discovery layout. A contract can select one explicitly via `"skill": "verify"` for the external Codex bridge even on another target repo; native discovery in a target repo requires an explicit install. The other three generic skills from the initial PR draft were pruned because they duplicated existing `AGENTS.md`/controller behavior. See [skills and evaluation guidance](docs/SKILLS.md). No live skill performance lift has been demonstrated.
+
 ## Verify this repository
 
 ```bash
