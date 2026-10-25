@@ -88,6 +88,41 @@ class AiNativeTests(unittest.TestCase):
         self.assertEqual(outcome["verdict"], "REWORK")
         self.assertIn("gate", outcome["failed_required_gates"])
 
+    def test_failed_required_gate_skips_external_reviewer(self):
+        # A reviewer is unnecessary when a mandatory gate already failed.
+        marker = self.repo / "reviewer-was-called.txt"
+        self.reviewer_path.write_text(
+            "from pathlib import Path\\n"
+            "Path('reviewer-was-called.txt').write_text('unexpected')\\n",
+            encoding="utf-8",
+        )
+        self.contract["gates"][0]["command"] = [sys.executable, "-c", "raise SystemExit(1)"]
+        code, outcome = self.call()
+        self.assertEqual(code, 2)
+        self.assertEqual(outcome["verdict"], "REWORK")
+        self.assertFalse(marker.exists())
+        self.assertFalse((self.repo / ".ai-native/runs/trial/attempt-01/review_packet.json").exists())
+        self.assertEqual(outcome["control_plane_decision"]["action"], "ESCALATE_NO_EXECUTOR")
+
+    def test_blocked_gate_redacts_cli_secrets_without_reviewer(self):
+        marker = self.repo / "reviewer-was-called.txt"
+        self.reviewer_path.write_text(
+            "from pathlib import Path\\n"
+            "Path('reviewer-was-called.txt').write_text('unexpected')\\n",
+            encoding="utf-8",
+        )
+        secret = "must-never-appear-in-evidence"
+        self.contract["gates"][0]["command"] = [
+            "missing_command_419167", "--token", secret
+        ]
+        code, outcome = self.call()
+        self.assertEqual(code, 3)
+        self.assertEqual(outcome["verdict"], "BLOCKED")
+        self.assertFalse(marker.exists())
+        gates = engine.load_json(self.repo / ".ai-native/runs/trial/attempt-01/gates.json")
+        self.assertEqual(gates["gates"][0]["command"][-1], "[REDACTED]")
+        self.assertNotIn(secret, json.dumps(gates))
+
     def test_missing_gate_binary_is_blocked(self):
         self.contract["gates"][0]["command"] = ["missing_command_419167"]
         code, outcome = self.call()
