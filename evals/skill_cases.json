@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "focus": [
+    {
+      "skill": "verify",
+      "case_id": "android-cached-test",
+      "prompt": "Build reports SUCCESSFUL; old JUnit XML exists in a previous build folder. Can you claim the latest Android change passed tests?",
+      "expected": [
+        "detect stale evidence",
+        "request fresh run/source binding"
+      ],
+      "source": "Android skills/verify.md"
+    },
+    {
+      "skill": "verify",
+      "case_id": "aurel-reference-vs-neural",
+      "prompt": "CTest passes on the native reference path but the neural renderer GPU and video run were unavailable. Is the neural milestone verified?",
+      "expected": [
+        "separate proof level",
+        "NOT_VERIFIED or BLOCKED for neural scope"
+      ],
+      "source": "Aurel adapter acceptance"
+    },
+    {
+      "skill": "token-efficient-task",
+      "case_id": "large-test-matrix",
+      "prompt": "Fix one voice-navigation scenario, given a 3700-line test matrix and a long issue file. How should you gather context and execute?",
+      "expected": [
+        "bounded lookup",
+        "focused implementation packet",
+        "mandatory final gates"
+      ],
+      "source": "Android token-efficient-task SKILL.md"
+    }
+  ],
+  "negative_triggers": [
+    {
+      "skill": "verify",
+      "prompt": "Create a new CSS theme without any verification request"
+    },
+    {
+      "skill": "token-efficient-task",
+      "prompt": "Explain in one paragraph what a Python dictionary is"
+    }
+  ]
+}

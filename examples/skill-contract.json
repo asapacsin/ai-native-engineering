@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "task_id": "skill-demo",
-  "skill": "fix",
-  "goal": "Apply a focused fix to an already reproduced defect",
+  "skill": "verify",
+  "goal": "Verify a bounded implementation using fresh scope-specific evidence",
   "acceptance": "A project-specific focused regression test passes and an independent reviewer checks the actual diff",
   "boundaries": [
     "No changes outside the approved scope",

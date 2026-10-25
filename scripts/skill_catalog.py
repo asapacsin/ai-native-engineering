@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills"
+SKILLS_DIR = Path(__file__).resolve().parents[1] / ".agents" / "skills"
 SKILL_NAME = re.compile(r"[a-z][a-z0-9-]{0,63}\Z")
 MAX_SKILL_BYTES = 12000
 
