@@ -22,7 +22,7 @@ Do not run the reviewer with source-editing permissions. A non-mutating source s
 python3 scripts/ai_native.py cycle --repo /path/to/target-repo --contract /path/to/task.json
 ```
 
-With `AI_NATIVE_EXECUTOR_CMD` set, the controller invokes Executor -> configured gate commands -> reviewer; repeats only on REWORK up to `max_attempts` and overall deadline. Without an Executor command, it verifies current state just once. Without a Reviewer command, the verdict is NOT_VERIFIED, even if tests pass. Evidence is written under `<target>/.ai-native/runs/<task-id>/` (gitignored).
+With `AI_NATIVE_EXECUTOR_CMD` set, the controller invokes Executor -> configured gate commands -> reviewer; repeats only on REWORK up to `max_attempts` and overall deadline. **A failed or blocked required gate short-circuits review**: the controller records the gate evidence and returns REWORK/BLOCKED without launching the paid Reviewer. Optional gate failures do not automatically block review. Without an Executor command, it verifies current state just once. Without a Reviewer command, an otherwise successful gated task is NOT_VERIFIED. Evidence is written under `<target>/.ai-native/runs/<task-id>/` (gitignored).
 
 Exit codes: `0 PASS`, `2 REWORK`, `3 BLOCKED`, `4 NOT_VERIFIED`, `5 invalid config or controller failure`. When a time/retry budget is exhausted, inspect the latest verdict and escalate rather than continuing indefinitely.
 
@@ -66,7 +66,7 @@ $env:AI_NATIVE_REVIEWER_CMD = 'python C:\path\to\ai-native-engineering\\scripts\
 python C:\path\to\ai-native-engineering\\scripts\\ai_native.py cycle --repo C:\path\to\project --contract C:\path\to\task.json
 ```
 
-Change actual installed model selection through `AI_NATIVE_EXECUTOR_MODEL`, `AI_NATIVE_REVIEWER_MODEL`, and corresponding `_EFFORT` env vars. Verify the resulting Codex session activity. This wrapper uses `codex exec --model ... --sandbox ... --output-schema ... --output-last-message ...` as documented by the Codex non-interactive workflow. The reviewer is sandboxed read-only; the controller rejects a stale fingerprint or a reviewer process modifying the tracked source.
+Change actual installed model selection through `AI_NATIVE_EXECUTOR_MODEL`, `AI_NATIVE_REVIEWER_MODEL`, and corresponding `_EFFORT` env vars. Verify the resulting Codex session activity. This wrapper uses `codex exec --model ... --sandbox ... --output-schema ... --output-last-message ...` as documented by the Codex non-interactive workflow. The reviewer is sandboxed read-only; the controller rejects a stale fingerprint or a reviewer process modifying the tracked source. The controller supplies `AI_NATIVE_STEP_TIMEOUT_SECONDS` to the Codex bridge, slightly below its outer subprocess deadline, so the bridge can stop the underlying agent first. When invoked standalone, the bridge defaults to 290 seconds for executor and 230 for reviewer; it no longer unconditionally terminates either role at 180 seconds.
 
 **Security and billing:** this launches real model sessions consuming the account/API allowance where available. Authenticate through Codex itself, not by committing tokens. Run on a small disposable branch first. Never invoke it with untrusted task contracts, which contain executable gate commands.
 
