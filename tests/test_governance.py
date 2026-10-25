@@ -28,6 +28,11 @@ class GovernanceTests(unittest.TestCase):
                          "approved_paths": ["app.py", "src/**/*.py"], "forbidden_paths": ["src/secret.py"],
                          "gates": [{"id":"unit", "level":"unit", "command":[sys.executable,"-c","pass"]}]}
 
+        # Owned by the verifier, not inferred from the Executor's own gate list.
+        self.requirements = {"schema_version": 1, "requirements": [
+            {"id": "feature-unit", "min_level": "unit", "gate_ids": ["unit"]}
+        ]}
+
     def tearDown(self):
         self.temp.cleanup()
 
@@ -59,7 +64,25 @@ class GovernanceTests(unittest.TestCase):
     def test_approval_and_verified_exact_tip_eligible(self):
         governance.approve(self.repo, self.contract, "architect", "architect")
         self.assertVerdict("PASS")
-        self.assertEqual(governance.eligibility(self.repo, self.contract), [])
+        self.assertEqual(governance.eligibility(self.repo, self.contract, self.requirements), [])
+
+    def test_python_api_cannot_skip_independent_requirements(self):
+        governance.approve(self.repo, self.contract, "architect", "architect")
+        self.assertVerdict("PASS")
+        problems = governance.eligibility(self.repo, self.contract)
+        self.assertTrue(any("requirements manifest is required" in p for p in problems), problems)
+        self.assertEqual(governance.eligibility(self.repo, self.contract, self.requirements), [])
+
+    def test_review_task_identity_cannot_be_rewritten_by_eligibility(self):
+        governance.approve(self.repo, self.contract, "architect", "architect")
+        self.assertVerdict("PASS")
+        path = self.repo / ".ai-native/runs/task-one/latest.json"
+        report = json.loads(path.read_text(encoding="utf-8"))
+        report["task_id"] = "different-task"
+        ai_native.save_json(path, report)
+        problems = governance.eligibility(self.repo, self.contract, self.requirements)
+        self.assertTrue(any("task_id" in p for p in problems), problems)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["task_id"], "different-task")
 
     def test_executor_cannot_approve(self):
         with self.assertRaises(ValueError):
@@ -160,7 +183,7 @@ class GovernanceTests(unittest.TestCase):
         governance.approve(self.repo, self.contract, "planner", "planner")
         self.assertVerdict("PASS")
         # A reviewed feature can merge before unrelated backlog tasks finish.
-        self.assertEqual(governance.eligibility(self.repo, self.contract), [])
+        self.assertEqual(governance.eligibility(self.repo, self.contract, self.requirements), [])
 
     def make_release_evidence(self, task_id, source_fingerprint):
         import hashlib
@@ -213,7 +236,7 @@ class GovernanceTests(unittest.TestCase):
              "contract_hash": governance.digest({**self.contract, "task_id": "done"}),
              "depends_on":[], "action":"Verified", "evidence":[evidence]}
         ]}
-        self.assertEqual(governance.eligibility(self.repo, self.contract, release_registry=registry), [])
+        self.assertEqual(governance.eligibility(self.repo, self.contract, self.requirements, release_registry=registry), [])
         evidence_path.write_text("{}", encoding="utf-8")
         self.assertTrue(any("checksum" in p for
                             p in governance.eligibility(self.repo, self.contract, release_registry=registry)))
