@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "ordered": true,
+  "contracts": [
+    "examples/contract.json"
+  ]
+}
