@@ -45,6 +45,10 @@ the external supervisor, not the Executor. A task's contract_path may be absolut
 the registry directory and must identify a contract with the same task_id.
 See docs/INTEGRATION.md for credential allowlists and release gates.
 
+## Portable task skills
+
+Five opt-in, project-neutral Agent Skills now live under `skills/*/SKILL.md` (reproduce, fix, verify, review-packet, token-efficient-task). An approved task contract may specify `"skill": "fix"`; the Codex executor bridge validates and injects that procedure even when operating in another target repo. Existing contracts are unchanged; reviewers remain independent, and skills never replace gates. See [portable skills setup and limitations](docs/SKILLS.md). No native installation or measured performance improvement is claimed.
+
 ## Verify this repository
 
 ```bash
