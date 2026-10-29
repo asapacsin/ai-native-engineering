@@ -11,6 +11,8 @@
 9. Results must bind to actual source revision/worktree fingerprint. Compile != runtime; JVM != device; offline model clip != live performance. Record evidence level and what was NOT verified.
 10. No secrets in reports, logs, commits, agent prompts or model inputs. Never claim this skeleton has called a real LLM without an explicitly configured reviewer/executor CLI.
 
+11. **Validate the method, not just the implementation**: AI may hallucinate technical facts or select a plausible but unsuitable algorithm, architecture or workflow. Before non-trivial work, check authoritative sources, compare realistic options, record the chosen method's assumptions and rationale, and test the riskiest premise on a small representative case. A responsible human/domain reviewer must understand enough to challenge the choice; a passing build or Reviewer verdict is not proof of method suitability. See the method validity gate in `docs/AI_BUILDER_BIBLE.md`.
+
 Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 
 ## Governance and continuation entry points
