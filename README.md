@@ -82,7 +82,7 @@ See **[community-reviewed deterministic enforcement patterns](docs/COMMUNITY_DET
 
 1. Optionally surface reviewable candidates from explicitly selected source checklists with `python3 scripts/discover_work.py --repo <project> --source OPEN_PROBLEMS.md --output .ai-native/candidates.json`. Candidates are provenance records only; review them and create approved contracts before execution.
 2. Copy and edit `examples/contract.json` (or start with `adapters/aurel.json` / `adapters/android.json`).
-3. Configure `AI_NATIVE_EXECUTOR_CMD` (optional) and `AI_NATIVE_REVIEWER_CMD` (required for PASS) to **real authenticated external agent CLIs**; see `scripts/codex_bridge.py` for a working Codex CLI adapter with explicit Luna Medium / Astra High model flags. Prompts alone do not invoke an LLM.
+3. Configure `AI_NATIVE_EXECUTOR_CMD` (optional) and `AI_NATIVE_REVIEWER_CMD` (required for PASS) to **real authenticated external agent CLIs**; see `scripts/codex_bridge.py` for a working Codex CLI adapter with explicit Luna Medium / Astra High model flags, or `scripts/claude_bridge.py reviewer` for a read-only Claude Code reviewer defaulting to Claude Opus 5.5 at high effort (docs/INTEGRATION.md §14). Prompts alone do not invoke an LLM.
 4. Run `python3 scripts/ai_native.py cycle --repo /path/to/project --contract /path/to/contract.json`.
 5. Examine `.ai-native/runs/<task-id>/latest.json`, gate logs, review packet and decision. On REWORK, target the changed files and re-verify; do not accept an unsupported green build as E2E proof.
 
@@ -98,6 +98,7 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md), [pre-tool guard guide](docs/PR
 | `scripts/pre_tool_guard.py` | opt-in pre-action path policy and dangerous-shell-command checks |
 | `scripts/capabilities.py` | host resource probes and trusted capability snapshots for task-level blocking |
 | `scripts/delivery_gate.py` | read-only clean-tip / remote branch SHA verification |
+| `scripts/claude_bridge.py` | read-only Claude Code reviewer adapter (Opus 5.5, high effort by default); fails closed on errors or model mismatch |
 | `scripts/codex_bridge.py` | optional external Codex executor/reviewer subprocess adapters; live integration not certified |
 | `scripts/control_plane.py` | pure deterministic cycle, frontier and merge decisions; decision hash and fail-closed rules |
 | `scripts/governance.py` | procedural approvals and scope checks delegated to deterministic merge policy; not GitHub branch protection |

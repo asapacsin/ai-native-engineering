@@ -208,3 +208,26 @@ The default output is stdout. If writing inside the target repository, the outpu
 See [ENVIRONMENT_CONTINUATION.md](ENVIRONMENT_CONTINUATION.md) for the exact runner commands and task-status rules. `scripts/capabilities.py` probes whether an NVIDIA GPU, FFmpeg and explicitly identified model files are available. An item with `requires: ["nvidia_gpu", "model_weights"]` is blocked only when those capabilities are absent; unrelated CPU tasks continue. The runner must keep its mutable registry/capabilities gitignored or outside the worktree and protect them from Executor writes.
 
 `scripts/supervisor.py --capabilities <trusted.json> --require-remote` is the opt-in fail-closed delivery mode. It never pushes for you: final checks/review must target the committed source, publication must occur on an authorized branch, and the remote SHA must match. Missing GPU, withheld model approval, or failed GitHub push are named **task-level blockers**, not evidence that a whole project is complete. The cloud task must actually invoke the external supervisor; these files do not install a Codex Cloud Stop hook.
+
+## 14. Claude Code reviewer (Claude Opus 5.5, high effort)
+
+`scripts/claude_bridge.py reviewer` runs the independent Reviewer through the Claude Code CLI:
+`claude -p --model claude-opus-5-5 --effort high --output-format json --json-schema <review schema>`
+with `--permission-mode dontAsk`, only `Read`, `Grep`, `Glob` and read-only `git` commands allowed, and
+edit/write/commit/push tools denied. It reuses the Codex bridge's reviewer prompt and review schema.
+
+```bash
+export AI_NATIVE_REVIEWER_CMD="python3 /absolute/path/ai-native-engineering/scripts/claude_bridge.py reviewer"
+# Optional overrides and cost cap:
+export AI_NATIVE_REVIEWER_MODEL=claude-opus-5-5 AI_NATIVE_REVIEWER_EFFORT=high
+export AI_NATIVE_REVIEWER_MAX_BUDGET_USD=<cap>
+# If the CLI authenticates by API key rather than files under HOME:
+export AI_NATIVE_REVIEWER_ENV_ALLOWLIST=ANTHROPIC_API_KEY
+```
+
+The bridge fails closed. A CLI error, non-JSON output, a review that does not match the schema, or a
+`modelUsage` report naming a different model than the configured one writes `NOT_VERIFIED` instead of
+trusting the output. The controller's own fingerprint, contract-hash and gate checks still apply on top.
+`tests/test_claude_bridge.py` exercises it against a test-double `claude` executable only; a live
+authenticated Opus 5.5 review has **not** been run by these tests. The Executor is configured
+separately (for example `codex_bridge.py executor`); use a different session from the Reviewer.
