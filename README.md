@@ -1,5 +1,7 @@
 # AI-native Engineering (Executor-first + End-State Reviewer)
 
+> **Integration note (2026-10-31):** this version merges every open branch (PRs #5, #8–#14) onto `main` and adds the research skill; see the [combined-version update](docs/PRACTICE_COVERAGE.md#combined-version-update--2026-10-31).
+>
 > **Coverage status (2026-10-22): INCOMPLETE.** The shared project has implemented *local* contract approval and scoped checks, an executor/reviewer loop, gate evidence, and a manually populated dependency-aware work frontier. It does **not** yet implement or verify every practice from Android, Aurel, and Edria. In particular, required CI/branch protection, automatic discovery from canonical sources, independent termination review, cost-aware model routing, durable checkpoint recovery, research/design-basis gates, and real project-specific device/GPU/visual validations remain missing or partial. See the [coverage audit](docs/PRACTICE_COVERAGE.md). The controller's unit tests are not full-system parity and do not prove a GitHub Actions run.
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
@@ -59,10 +61,6 @@ For any code-changing agent/Codex task, **commit approved changes, recheck the e
 
 **Status:** This is currently an operating rule, not a hard guarantee from the cloud runner or repository CI.
 
-## Portable task skills
-
-Two evidence-backed, opt-in skills live under `.agents/skills/` (`verify`, `token-efficient-task`) in the native Codex discovery layout. A contract can select one explicitly via `"skill": "verify"` for the external Codex bridge even on another target repo; native discovery in a target repo requires an explicit install. The other three generic skills from the initial PR draft were pruned because they duplicated existing `AGENTS.md`/controller behavior. See [skills and evaluation guidance](docs/SKILLS.md). No live skill performance lift has been demonstrated.
-
 ## Verify this repository
 
 ```bash
@@ -121,6 +119,6 @@ This repository is hosted at [asapacsin/ai-native-engineering](https://github.co
 
 ## Reusable agent skills and /goal
 
-This repository now contains **nine shared procedural skills**: `goal`, `start`, `reproduce`, `fix`, `verify`, `review-packet`, `continue`, `handoff`, and `create-skill`. Canonical procedures are in [skills/](skills/), with discoverable manifests for [Claude Code](.claude/skills/goal/SKILL.md) and [Codex](.agents/skills/goal/SKILL.md). Claude users invoke `/goal <desired outcome>`; Codex users invoke `$goal <desired outcome>` or choose the skill through `/skills`. See [the skills runbook](docs/SKILLS.md).
+This repository contains **eleven shared skills**: the nine-procedure pack `goal`, `start`, `reproduce`, `fix`, `verify`, `review-packet`, `continue`, `handoff`, `create-skill`; the evidence-first `token-efficient-task` (with a full-body `verify` for contract injection via `"skill": "verify"` and `scripts/skill_catalog.py`); and the research skill **`ai-research-directions`** (literature/practice review and gate-first ranking of research or method directions before bulk implementation). Canonical procedures are in [skills/](skills/), with discoverable manifests for [Claude Code](.claude/skills/goal/SKILL.md) and [Codex](.agents/skills/goal/SKILL.md). Claude users invoke `/goal <desired outcome>`; Codex users invoke `$goal <desired outcome>` or choose the skill through `/skills`. See [the skills runbook](docs/SKILLS.md), including the open question of whether the generic `reproduce`/`fix`/`review-packet` procedures earn their place.
 
 **The /goal skill is outcome-driven, not an infinite auto-prompt loop.** It prepares authorized contracts and required proof, uses the existing deterministic work frontier, checks current source/evidence, and hands executable work to the bounded supervisor where an actual external runner is available. A passing unit test, a model claiming completion, or a Stop hook are not sufficient for an end-to-end `COMPLETE` verdict. Current manifests have static tests and example behavioral evals; live cross-client invocation, target-repo integrations, independent skill-eval benchmarks and remote durable supervision remain **NOT_VERIFIED**.

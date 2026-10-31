@@ -106,3 +106,15 @@ Initial five generic procedures were reduced to two evidence-backed skills (`ver
 ## Skills update — 2026-10-25
 
 Coverage row 24 moves from MISSING to **PARTIAL**: nine reusable canonical skill procedures are published under `skills/` with both Claude Code (.claude/skills) and Codex (.agents/skills) frontmatter manifests; `tests/test_skills.py` statically validates discovery wiring and `skills/evals.json` provides *unexecuted* behavior test cases. The `goal` skill binds the desired outcome to the existing contract, frontier, gate, independent reviewer and supervised continuation workflow, but does **not** add a new process supervisor or guarantee continued execution in Codex Cloud. Live client invocation and fresh-context no-skill comparisons remain NOT_VERIFIED. All original parity constraints, including device/GPU/visual adapters and real CI branch protections, remain outstanding.
+
+## Combined-version update — 2026-10-31
+
+Branch `integration/combined-practices` merges `main` (`fa223b5`) with every open branch: #8 (gate short-circuit, error redaction, Codex step timeouts), #5 (remote-delivery rule), #9 (evidence-first skills and contract-bound skill dispatch), #12 (nine-procedure skill pack and `/goal`), #10 (deliverable continuation), #11 (Codex continuation queue bootstrap), #13 (parallel multi-agent runbook) and #14 (method validity gate). It also adds the research skill `ai-research-directions` from `asapacsin/omnieeg-research`. The full test suite, including the research skill's own tool tests, passed locally; no live model, hosted CI, device or GPU run is claimed.
+
+Row changes in this version (all remain short of CORE):
+- **19 Research/design basis:** PARTIAL. The method validity gate (AGENTS rule 14, Bible section) plus `ai-research-directions` give a documented procedure and a deterministic, gate-first ranking helper. There is still no enforced design-basis approval check before implementation.
+- **24 Skills:** PARTIAL. Eleven skills with Claude Code and Codex manifests, static tests, contract-bound injection, and unexecuted eval cases. No live with/without-skill comparison yet. #9 and #12 disagree on whether `reproduce`, `fix` and `review-packet` are worth keeping; both are retained until measured.
+- **30 Research reproducibility:** PARTIAL for literature and direction selection only, via the research skill's evidence records and search log. A seed/split/leakage/held-out evaluation adapter is still missing.
+
+Still missing in this version: per-task worktree creation, cost-aware routing and cost accounting, an independent termination Decider, the IMPLEMENTED→COMPLETE progress model, hosted branch protection, and one live authenticated Executor/Reviewer cycle. Rows 04, 09, 15 and 28 in the baseline table above understate the current code (`governance.py` approve/eligible, `frontier.py` human packet and clean passes, `supervisor.py` checkpoints, `delivery_gate.py`); treat them as PARTIAL.
+

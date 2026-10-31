@@ -58,6 +58,21 @@ A stronger reviewer does not automatically fix code. It emits a narrow correctio
 
 See the [multi-agent orchestration runbook](MULTI_AGENT_ORCHESTRATION.md) for the scheduler contract, launch steps for `claude --worktree`, optional Agent Teams settings, evidence/integration gates, and diagnostics; follow provider-specific restrictions there.
 
+## Method validity gate — understand the approach before scaling implementation
+
+AI can **hallucinate facts** (APIs, dependencies, capabilities, results) and can also choose a **plausible but wrong method** (algorithm, architecture, library, workflow, or optimization target). Passing unit tests or receiving a confident review does **not** establish that the chosen method solves the real problem well.
+
+For non-trivial, unfamiliar, costly, high-risk, or architecture-changing work, apply a lightweight **method-selection checkpoint before bulk implementation**:
+
+1. **Define the real outcome and constraints.** State the user-visible success condition, acceptance scope, quality, time/cost/latency budget, and non-negotiable limitations. Challenge an assumed implementation strategy when a simpler method can achieve the outcome.
+2. **Inspect and verify.** Read the actual codebase and authoritative API/upstream documentation; independently check important technical claims rather than trusting model-generated explanations. Identify relevant established solutions before inventing a new one.
+3. **Compare methods.** Consider 1–3 realistic approaches (including reuse of an existing tool or smaller workflow), their trade-offs and failure modes. Record a brief design basis: chosen method, why, assumptions, rejected alternatives, and what would falsify the choice.
+4. **Understand enough to evaluate.** The accountable human and/or qualified domain reviewer should be able to explain the method's key mechanism, assumptions, limitations, and why it fits the problem. When domain expertise is missing, obtain authoritative references, a subject-matter review, or a bounded experiment; do not equate AI confidence with understanding.
+5. **Test the risky assumption early.** Use a small representative prototype, benchmark, sample, or vertical slice *before* scaling to many files/assets or committing to an architecture. Include negative and edge cases and measure outcome-level properties, not just compilation or interface conformance.
+6. **Review the method as well as the output.** Independent review must question whether the approach is appropriate, necessary, efficient, and supported by evidence—not only whether code matches the proposed plan. If repeated revisions do not improve the real outcome, stop the loop and revisit the method rather than extending retries.
+
+**Proportionality:** Routine, well-understood local fixes do not need a formal comparison or an expensive Architect call; a short rationale is enough. Escalate before irreversible, expensive or poorly understood commitments. Record **NOT_VERIFIED** where method validity remains untested. This checkpoint complements, and never replaces, the end-state deterministic gates.
+
 ## Engineering invariants
 
 - **One owner** per mutable state/behavior. Improve existing seams, don't create shadow state machines.
