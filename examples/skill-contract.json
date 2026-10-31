@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "task_id": "skill-demo",
+  "skill": "verify",
+  "goal": "Verify a bounded implementation using fresh scope-specific evidence",
+  "acceptance": "A project-specific focused regression test passes and an independent reviewer checks the actual diff",
+  "boundaries": [
+    "No changes outside the approved scope",
+    "Do not claim device E2E from unit tests"
+  ],
+  "budgets": {
+    "max_attempts": 2,
+    "max_total_seconds": 600
+  },
+  "gates": [
+    {
+      "id": "focused-test",
+      "level": "unit",
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ],
+      "timeout_seconds": 120,
+      "required": true
+    }
+  ]
+}

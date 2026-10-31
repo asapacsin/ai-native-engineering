@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from control_plane import canonical_hash, decide_cycle
+from skill_catalog import load_skill
 from process_security import child_environment, redact_argv, redact_text
 
 VERDICTS = {"PASS", "REWORK", "BLOCKED", "NOT_VERIFIED"}
@@ -82,6 +83,8 @@ def validate_contract(contract: dict) -> None:
         raise ValueError("task_id must be a safe nonempty slug")
     if not str(contract.get("goal", "")).strip():
         raise ValueError("goal is required")
+    if "skill" in contract:
+        load_skill(contract["skill"])  # Validate trusted name before launching paid models.
     gates = contract.get("gates")
     if not isinstance(gates, list) or not gates:
         raise ValueError("nonempty gates array required")
