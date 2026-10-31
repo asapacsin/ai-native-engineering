@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "idea": null,
+  "problem": null,
+  "proposed_mechanism": null,
+  "contribution_type": "infer and confirm in the report: method, theory, analysis, evaluation, dataset, systems or reproduction",
+  "intended_users": [],
+  "must_preserve": [],
+  "success_criterion": null,
+  "subfields": [],
+  "target_venues": [],
+  "venue_policy": "Choose leading relevant venues; verify year, track and acceptance from official records; include relevant non-conference prior art.",
+  "search": {
+    "mode": "standard",
+    "as_of_date": "resolve at run time in user timezone",
+    "recent_years": 3,
+    "include_foundations_outside_window": true,
+    "include_preprints": true,
+    "include_workshops": true,
+    "languages": ["English"],
+    "seed_papers": [],
+    "query_aliases": [],
+    "exclusions": [],
+    "time_budget_minutes": 60,
+    "modes": {
+      "quick": {"minutes_guide": 20, "screened_guide": [10, 20], "full_text_guide": [3, 5], "directions_guide": [2, 3]},
+      "standard": {"minutes_guide": 60, "screened_guide": [25, 50], "full_text_guide": [6, 12], "directions_guide": [3, 6]},
+      "deep": {"minutes_guide": 180, "screened_guide": [60, 120], "full_text_guide": [12, 25], "directions_guide": [4, 8]}
+    },
+    "stop_rule": "Stop at the explicit time budget or after two distinct query/citation expansions yield no materially new relevant mechanism or competitor. Report coverage limits; counts are planning guides."
+  },
+  "resources": {
+    "hardware": null,
+    "gpu_hours": null,
+    "money_budget": null,
+    "currency": null,
+    "wall_clock_days": null,
+    "team_skills": [],
+    "data_access": [],
+    "license_or_privacy_constraints": [],
+    "deployment_constraints": []
+  },
+  "evaluation": {
+    "datasets_or_problem_classes": [],
+    "metrics_or_proof_targets": [],
+    "baseline_requirements": [],
+    "minimum_meaningful_effect": null,
+    "failure_conditions": []
+  },
+  "ranking": {
+    "weights": {"fit": 0.25, "novelty": 0.2, "feasibility": 0.2, "rigor": 0.15, "impact": 0.15, "venue_fit": 0.05},
+    "sensitivity_fraction": 0.2
+  },
+  "output": {"shortlist_size": 2, "format": "Markdown plus evidence/search/ranking files", "language": "match user"}
+}

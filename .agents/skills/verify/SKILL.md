@@ -18,3 +18,5 @@ description: Verify claimed outcomes against fresh evidence from the exact sourc
 **Known failure classes from the source project:** Gradle may report success without fresh JUnit XML; old build directories may retain results; simultaneously building the same worktree caused transient `NoClassDefFoundError` failures; mixing debug and release counts inflated reports. Adapt the principle to the target toolchain rather than copying Android commands.
 
 **Stop conditions:** If a required test runner, device, credential, model weight, or hardware is unavailable, return precise `BLOCKED` or `NOT_VERIFIED` scope. Do not lower the stated required evidence level.
+
+**Controller commands:** for the exact `ai_native.py cycle` / `governance.py eligible` steps, also follow [the canonical verify procedure](../../../skills/verify.md).

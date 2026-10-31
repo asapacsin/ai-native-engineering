@@ -22,7 +22,9 @@ def contract(skill_name="verify"):
 
 class SkillCatalogTests(unittest.TestCase):
     def test_bundled_skills_are_well_formed(self):
-        self.assertEqual(available_skills(), ["token-efficient-task", "verify"])
+        self.assertEqual(available_skills(), sorted([
+            "ai-research-directions", "continue", "create-skill", "fix", "goal", "handoff",
+            "reproduce", "review-packet", "start", "token-efficient-task", "verify"]))
         for name in available_skills():
             self.assertIn("name: " + name, load_skill(name))
 

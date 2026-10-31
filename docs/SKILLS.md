@@ -1,6 +1,57 @@
-# Portable skills: evidence-first deployment (2026-10-25)
+# Portable AI-native skills: Claude Code / Codex
 
-## Decision
+This file combines two skill efforts: the evidence-first pair (`verify`, `token-efficient-task`, PR #9) and the cross-client procedure pack with `/goal` (PR #12). It also adds the `ai-research-directions` research skill.
+
+## Layout
+
+| Kind | Location | Who reads it |
+| --- | --- | --- |
+| Canonical procedure for the PR #12 pack (`goal`, `start`, `reproduce`, `fix`, `verify`, `review-packet`, `continue`, `handoff`, `create-skill`) | `skills/<name>.md` | the agent, via a manifest |
+| Codex manifest | `.agents/skills/<name>/SKILL.md` | Codex native discovery; `scripts/skill_catalog.py` for contract-selected injection |
+| Claude Code manifest | `.claude/skills/<name>/SKILL.md` | Claude Code native discovery |
+| Self-contained skills (`token-efficient-task`, `ai-research-directions`) | full body in `.agents/skills/<name>/`, with a thin `.claude/skills/<name>/SKILL.md` pointer | both clients |
+
+`verify` exists in both efforts. Its Codex `SKILL.md` keeps the full failure-informed body from PR #9 (so contract injection carries real guidance) and links to the PR #12 canonical procedure for the controller commands.
+
+**Open tension, not resolved here:** PR #9 pruned the generic `reproduce`, `fix` and `review-packet` procedures because they had no demonstrated value over `AGENTS.md` and the controller, while PR #12 ships them. Both are included so that no practice is lost. Use the evaluation procedure below to decide which to keep, and remove any that show no measured lift.
+
+## Research skill: `ai-research-directions`
+
+Moves an initial research idea to an evidence-backed shortlist and pilot plan: venue-aware literature search, closest-work mapping, practice/documentation review, gate-first ranking (`scripts/rank_directions.py`) and an optional bounded Semantic Scholar query (`scripts/search_papers.py`). It covers practice rows 19 (research/design basis before major work) and part of 30 (research reproducibility). It never authorizes training, paid compute or restricted data, and it requires web access for live searches. Origin: `asapacsin/omnieeg-research` `.agents/skills/ai-research-directions/`. Its own tool tests run with `python3 .agents/skills/ai-research-directions/scripts/test_tools.py`.
+
+## Use immediately
+
+From the root of this checked-out repository start Claude Code or Codex (with normal workspace trust and tool permissions). In Claude Code invoke:
+
+    /goal Finish the authorized feature, prove the acceptance tests and report anything unverified
+
+In Codex select the goal skill with /skills or invoke:
+
+    $goal Finish the authorized feature, prove the acceptance tests and report anything unverified
+
+Claude /goal is a custom skill; Codex $goal is the corresponding skill invocation, not a guaranteed slash alias. If a newly added skill is not discovered, restart the client and confirm the working directory is within this checkout. If another installed skill has the same name, choose this repository's entry explicitly.
+
+Other skills: start (resume), reproduce (baseline), fix (small correction), verify (fresh gates), review-packet (independent review), continue (authorized frontier), handoff (durable state), create-skill (evidence-led reuse).
+
+## What makes /goal operational rather than a prompt loop
+
+The skill directs the agent to use the repository's existing scripts; there is no new shadow task manager:
+- A task contract, independent requirements and explicit gates define success: examples/contract.json, examples/requirements.json.
+- A manually authorized work DAG is the source for next actions: examples/work.json is a schema, not a live registry. Each autonomous item needs contract_path to use supervisor.py.
+- scripts/frontier.py next prevents one blocked resource from ending independent work.
+- scripts/ai_native.py cycle runs deterministic verification and an independently configured external reviewer; missing reviewer is NOT_VERIFIED.
+- scripts/supervisor.py is the durable bounded execution loop. It must be launched in an actual host environment with an authenticated executor/reviewer and writable trusted registry. It does not automatically push, merge or authorize contracts.
+- .claude/hooks/keep-going.py can advise continuation only when explicitly enabled, and it does not execute the next task.
+
+A quick read-only check from the harness root (does not invoke a model):
+
+    python3 -m unittest discover -s tests -p 'test_skills.py' -v
+    python3 scripts/frontier.py check --registry examples/work.json
+    python3 scripts/ai_native.py validate --contract examples/contract.json
+
+For a real target repo, first follow docs/INTEGRATION.md and docs/ENVIRONMENT_CONTINUATION.md to set up valid contracts, a gitignored work registry and actual CLI adapters. Choose a disposable branch, enforce scope/approval separately, and run the exact host-owned supervisor command in the goal skill. To adapt this pack to another repo, vendor BOTH client skill folders and the canonical skills/ files, then point scripts/ references to an installed/available AI-native harness; copying only a manifest cannot make the executor or supervisor available.
+
+## Evidence-first selection (from PR #9)
 
 The initial five procedures were **not** evidence of improved effectiveness. After inspecting [Nova Drive's skill policy](https://github.com/asapacsin/Android_Automotive_Voice_Agent/blob/main/harness/SKILL_POLICY.md), we **removed** generic `reproduce`, `fix`, and `review-packet`: they reiterated existing AGENTS/controller requirements and had no demonstrated marginal value. Prefer deterministic scripts for repeatable actions, hard gates for invariants, and skills only for repeatable tasks requiring judgment.
 
@@ -52,3 +103,9 @@ Native discovery paths and supported hooks differ. Do **not** assume `.agents/sk
 - [Codex: Build Skills](https://learn.chatgpt.com/docs/build-skills) — native `.agents/skills` discovery and explicit/implicit triggering
 
 **Verification honesty:** CI in this repository checks static catalogs, deterministic comparison and tests. A paid live Codex/Claude A/B or Android/Aurel hardware/GPU run is NOT_VERIFIED until actual runner evidence is recorded. No skill uplift percentage is claimed.
+
+## Quality and scope
+
+Tests/test_skills.py checks discoverability and the documented contract; skills/evals.json lists fresh-session behavioral cases. Neither proves that a model obeyed the skill, a real CLI was invoked, a remote branch protection rule was installed, or the target project passed E2E tests. Evaluate the cases with independent sessions before claiming skill reliability, ideally against a no-skill baseline. This shared pack intentionally avoids Android-only scripts, Aurel-only GPU assertions, and manga-specific policy.
+
+Primary references: https://code.claude.com/docs/en/skills and https://learn.chatgpt.com/docs/build-skills ; see docs/AI_BUILDER_BIBLE.md for the underlying engineering method.

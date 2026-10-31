@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "directions": [
+    {
+      "id": "D1",
+      "title": "Replace with a specific research question",
+      "hypothesis": null,
+      "contribution_type": null,
+      "idea_alignment": null,
+      "closest_work_ids": [],
+      "delta_from_closest_work": null,
+      "strongest_objection": null,
+      "decisive_test": null,
+      "scores": {
+        "fit": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []},
+        "novelty": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []},
+        "feasibility": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []},
+        "rigor": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []},
+        "impact": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []},
+        "venue_fit": {"score": null, "low": null, "high": null, "rationale": "", "evidence": []}
+      },
+      "gates": {
+        "closest_work": {"status": "unknown", "rationale": ""},
+        "data_access": {"status": "unknown", "rationale": ""},
+        "compute_budget": {"status": "unknown", "rationale": ""},
+        "evaluation_validity": {"status": "unknown", "rationale": ""}
+      },
+      "pilot": {"baseline": null, "intervention": null, "data_or_assumptions": null, "metric_or_theorem": null, "success_threshold": null, "stop_rule": null, "estimated_cost": null, "cost_evidence_ids": [], "timebox": null}
+    }
+  ]
+}

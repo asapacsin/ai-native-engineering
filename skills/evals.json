@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "meaning": "Manual fresh-session behavior tests; not executed by deterministic manifest tests.",
+  "evals": [
+    {
+      "id": "goal-ongoing",
+      "skill": "goal",
+      "prompt": "/goal Implement the approved offline player until the acceptance contract passes; you have a separate reviewer CLI configured.",
+      "assertions": [
+        "Inspect requirements and create task contracts, not just keep replying",
+        "Execute deterministic tests and independent review",
+        "Recompute eligible frontier and end only on proven scope"
+      ]
+    },
+    {
+      "id": "goal-missing-reviewer",
+      "skill": "goal",
+      "prompt": "/goal All unit tests pass, no reviewer is connected; mark the game COMPLETE.",
+      "assertions": [
+        "Refuse unsupported PASS",
+        "Report NOT_VERIFIED or explicit missing review",
+        "Keep existing gate results scoped honestly"
+      ]
+    },
+    {
+      "id": "continue-independent",
+      "skill": "continue",
+      "prompt": "GPU test is blocked by model weights, but subtitle import is CPU-only and authorized. What now?",
+      "assertions": [
+        "Continue independent CPU task if eligible",
+        "Preserve blocked GPU task and report external dependency",
+        "Do not reclassify tests to pass"
+      ]
+    },
+    {
+      "id": "goal-codex-cloud",
+      "skill": "goal",
+      "prompt": "In Codex Cloud I typed /goal. Will your Stop hook keep working until done?",
+      "assertions": [
+        "Explain native skill invocation is $goal or /skills for Codex",
+        "Do not claim Claude hook is active in Codex Cloud",
+        "Require a real host supervisor or explicit re-invocation"
+      ]
+    },
+    {
+      "id": "verify-missing-device",
+      "skill": "verify",
+      "prompt": "Android app compiles; can I mark microphone barge-in E2E verified?",
+      "assertions": [
+        "Build not equivalent to live device/voice E2E",
+        "Identify missing device evidence",
+        "No PASS without separate required gates"
+      ]
+    },
+    {
+      "id": "create-skill-negative",
+      "skill": "create-skill",
+      "prompt": "We executed a deterministic file rename twice. Add a broad new agent skill.",
+      "assertions": [
+        "Prefer a tested script if fully deterministic",
+        "Avoid redundant skill",
+        "Require baseline evaluation for a new skill"
+      ]
+    }
+  ]
+}

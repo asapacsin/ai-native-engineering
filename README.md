@@ -110,3 +110,9 @@ See [AI Builder Bible](docs/AI_BUILDER_BIBLE.md), [pre-tool guard guide](docs/PR
 ## This repository is published
 
 This repository is hosted at [asapacsin/ai-native-engineering](https://github.com/asapacsin/ai-native-engineering). The original bootstrap-only publishing script is retained for historical/reference purposes and deliberately refuses to overwrite this existing repository. Review the [coverage audit](docs/PRACTICE_COVERAGE.md) before claiming all source-project practices are implemented.
+
+## Reusable agent skills and /goal
+
+This repository now contains **nine shared procedural skills**: `goal`, `start`, `reproduce`, `fix`, `verify`, `review-packet`, `continue`, `handoff`, and `create-skill`. Canonical procedures are in [skills/](skills/), with discoverable manifests for [Claude Code](.claude/skills/goal/SKILL.md) and [Codex](.agents/skills/goal/SKILL.md). Claude users invoke `/goal <desired outcome>`; Codex users invoke `$goal <desired outcome>` or choose the skill through `/skills`. See [the skills runbook](docs/SKILLS.md).
+
+**The /goal skill is outcome-driven, not an infinite auto-prompt loop.** It prepares authorized contracts and required proof, uses the existing deterministic work frontier, checks current source/evidence, and hands executable work to the bounded supervisor where an actual external runner is available. A passing unit test, a model claiming completion, or a Stop hook are not sufficient for an end-to-end `COMPLETE` verdict. Current manifests have static tests and example behavioral evals; live cross-client invocation, target-repo integrations, independent skill-eval benchmarks and remote durable supervision remain **NOT_VERIFIED**.

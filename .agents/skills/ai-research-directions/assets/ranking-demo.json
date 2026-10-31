@@ -1,0 +1,35 @@
+{
+  "note": "Synthetic demonstration data only. The paper IDs and ratings below are illustrative and must not be treated as research evidence.",
+  "directions": [
+    {
+      "id": "D1",
+      "title": "Synthetic eligible example",
+      "scores": {
+        "fit": {"score": 4, "low": 3, "high": 4, "rationale": "Synthetic rationale", "evidence": ["P1"]},
+        "novelty": {"score": 4, "low": 3, "high": 5, "rationale": "Synthetic rationale", "evidence": ["P1"]},
+        "feasibility": {"score": 4, "low": 4, "high": 5, "rationale": "Synthetic rationale", "evidence": ["P1"]},
+        "rigor": {"score": 4, "low": 3, "high": 4, "rationale": "Synthetic rationale", "evidence": ["P1"]},
+        "impact": {"score": 3, "low": 2, "high": 4, "rationale": "Synthetic rationale", "evidence": ["P1"]},
+        "venue_fit": {"score": 4, "low": 3, "high": 4, "rationale": "Synthetic rationale", "evidence": ["P1"]}
+      },
+      "gates": {
+        "closest_work": {"status": "pass", "rationale": "Synthetic review complete"},
+        "data_access": {"status": "pass", "rationale": "Synthetic access confirmed"},
+        "compute_budget": {"status": "pass", "rationale": "Synthetic budget confirmed"},
+        "evaluation_validity": {"status": "pass", "rationale": "Synthetic evaluation plan reviewed"}
+      }
+    },
+    {
+      "id": "D2",
+      "title": "Synthetic deferred example",
+      "scores": {"fit": {"score": null, "low": null, "high": null, "rationale": "Needs review", "evidence": []}},
+      "gates": {"closest_work": {"status": "unknown", "rationale": "Synthetic literature search incomplete"}}
+    },
+    {
+      "id": "D3",
+      "title": "Synthetic rejected example",
+      "scores": {},
+      "gates": {"closest_work": {"status": "fail", "rationale": "Synthetic closest-work gate failed"}}
+    }
+  ]
+}

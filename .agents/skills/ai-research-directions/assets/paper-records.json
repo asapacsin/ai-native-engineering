@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "instructions": "Copy the record per paper. Null means unverified or unknown. Stable P IDs must match the report and directions. E IDs may identify non-paper evidence such as docs, official code or budget estimates; include source and provenance.",
+  "papers": [
+    {
+      "id": "P1",
+      "title": null,
+      "authors": [],
+      "year": null,
+      "canonical_url": null,
+      "doi_or_other_ids": {},
+      "venue": null,
+      "track": null,
+      "status": "unverified",
+      "status_source_url": null,
+      "version": null,
+      "accessed_at": null,
+      "related_versions": [],
+      "read_depth": "not_read",
+      "query_ids": [],
+      "task": null,
+      "method": null,
+      "assumptions": [],
+      "datasets_and_splits": [],
+      "baselines": [],
+      "metrics_and_protocol": null,
+      "compute_and_cost": {"value": null, "measured_or_reported_or_estimated": null},
+      "findings": [{"claim": null, "kind": "author_claim|reported_result|agent_inference", "location": null, "conditions": null, "limitations": null}],
+      "code_url": null,
+      "code_version": null,
+      "reproduction_evidence": [],
+      "relationship_to_idea": "support|contradict|closest_competitor|transfer|baseline",
+      "transfer_mismatch": null,
+      "inclusion_or_exclusion_reason": null
+    }
+  ],
+  "other_evidence": [
+    {"id": "E1", "kind": "official_docs|author_code|community_report|user_constraint|cost_estimate", "title": null, "source_url_or_local_record": null, "version": null, "accessed_at": null, "claim": null, "location": null, "limitations": null}
+  ]
+}

@@ -102,3 +102,7 @@ The pre-tool scope guard at scripts/pre_tool_guard.py is also present for Claude
 ## Portable skill packaging update — 2026-10-25
 
 Initial five generic procedures were reduced to two evidence-backed skills (`verify`, `token-efficient-task`) in `.agents/skills/` after reviewing Android's skill policy and external skill-evaluation evidence. `skill` is opt-in, bound to the contract and injected by the external Codex executor bridge; native project use requires explicit installation. No paid-model A/B benchmark or target E2E is asserted. See `docs/SKILLS.md`.
+
+## Skills update — 2026-10-25
+
+Coverage row 24 moves from MISSING to **PARTIAL**: nine reusable canonical skill procedures are published under `skills/` with both Claude Code (.claude/skills) and Codex (.agents/skills) frontmatter manifests; `tests/test_skills.py` statically validates discovery wiring and `skills/evals.json` provides *unexecuted* behavior test cases. The `goal` skill binds the desired outcome to the existing contract, frontier, gate, independent reviewer and supervised continuation workflow, but does **not** add a new process supervisor or guarantee continued execution in Codex Cloud. Live client invocation and fresh-context no-skill comparisons remain NOT_VERIFIED. All original parity constraints, including device/GPU/visual adapters and real CI branch protections, remain outstanding.

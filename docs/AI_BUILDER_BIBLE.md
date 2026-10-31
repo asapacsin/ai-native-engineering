@@ -71,3 +71,9 @@ From [Android_Automotive_Voice_Agent](https://github.com/asapacsin/Android_Autom
 ## Evidence and limitations
 
 A successful local unit-test result means only the harness unit tests ran. It does not mean the Aurel neural GPU workflow, Android speech/navigation E2E or any actual LLM provider review was run. Template gate commands must be executed in the respective repos; external Reviewer/Executor CLIs require authentication and working model selection. `PASS` is scoped to contract gates; if hardware is mandatory, add a real hardware gate before accepting.
+
+## Human-facing skills (2026-10-25 update)
+
+The Bible is now exposed through a small shared skill pack rather than pasting this document into every agent turn. See [docs/SKILLS.md](SKILLS.md) and canonical procedures under `skills/`. In Claude Code, `/goal <outcome>` is the interactive entry point; in Codex, use `$goal <outcome>`. `/goal` is a **decision procedure**, while the trusted host supervisor, independent requirements, gate evidence and GitHub rules are the **enforcement** mechanisms. A skill or a Stop hook by itself cannot prevent an arbitrary Codex Cloud task from ending. Final scope certification still requires a real independent reviewer, current evidence and any mandatory release/remote checks.
+
+A complete outcome means acceptance scoped by separately owned requirements; all required evidence has been produced on the current source; independent review has passed; remaining authorized tasks have been reconciled; and target-appropriate delivery/terminal gates are satisfied. If one of these is missing, report the specific incomplete state instead of `COMPLETE`. New skill manifests have only static contract tests and unexecuted example evals until genuine fresh-session trials are run.
