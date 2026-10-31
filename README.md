@@ -4,6 +4,8 @@
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
+**Portable Codex continuation quickstart:** [Bootstrap a reviewed contract queue into the existing supervisor](docs/CODEX_CONTINUATION_QUICKSTART.md) using `python3 scripts/bootstrap_queue.py --repo /path/to/project --queue /path/to/project/approved-queue.json`. The bootstrap preserves existing runtime state and does not invoke paid models. This is an adapter for the existing `scripts/supervisor.py`, not a second competing controller. A [small queue example](examples/approved_queue.example.json) is included.
+
 The optional [portable Stop-hook continuation](docs/HOOK_CYCLE.md) carries the Android repo's bounded keep-going mechanism into this project: it reads the validated work frontier, routes around blocked dependencies, and stops on no progress or a stale end-state review. It is **off by default** and does not discover unrecorded tasks or replace real verification.
 
 The [deliverable continuation rules](docs/DELIVERABLE_CONTINUATION.md) distinguish
