@@ -52,6 +52,18 @@ A stronger reviewer does not automatically fix code. It emits a narrow correctio
 - **Bounded autonomy**: max retries, command timeouts, time/token/GPU cost caps; continue independent work after external blockers, never use infinite recursive Stop hooks.
 - **No fabricated human/device results**: user testing, emulator, ADB, GPU and live-service checks require actual evidence. Classify unresolved as NOT_VERIFIED/BLOCKED, rather than advertising PASS.
 
+## Mandatory remote-delivery gate for code-changing tasks
+
+A locally finished run is not a remotely delivered implementation. The Executor or host must:
+
+1. Confirm the correct target repository, authorized remote (`git remote -v`), branch (`git branch --show-current`) and scoped changes (`git status --short`, `git diff --check`); do not sweep unrelated user changes into a commit.
+2. Commit only approved task files with a meaningful message. Run required deterministic gates and independent review against that **exact committed tip**; if anything changes, obtain fresh evidence and review.
+3. Push the reviewed commit to its authorized remote branch (`git push -u origin HEAD:<branch>`). Do not force-push, bypass protections or merge without approval.
+4. Verify delivery, not just a successful push command: compare `git rev-parse HEAD` with the SHA returned by `git ls-remote --heads origin <branch>`. Record repository, branch, SHA and outstanding unrelated working-tree changes in the end-state handoff.
+5. Close only after the remote SHA matches and acceptance evidence is current. If credentials, network access, permissions, CI/branch policy or review prevent delivery, report **BLOCKED** or **NOT_VERIFIED**, the precise blocker and any locally available commit SHA; do not claim a successfully delivered task. For read-only/no-change tasks, report that no commit was needed; explicit local-only instructions override pushing.
+
+This is an agent operating rule, **not a guarantee implemented by the current controller, Stop hook or CI**. A host-level post-run check or required CI is needed to make it mechanically enforceable. Passing independent review is not permission to merge a protected branch.
+
 ## Imported patterns (not copied product code)
 
 From [Android_Automotive_Voice_Agent](https://github.com/asapacsin/Android_Automotive_Voice_Agent): task contracts, role boundaries, read-only reviewer, review-before-integration, Stop/continue hook, TEST_MATRIX distinction of test layers. From `aurel-game`: `verification/gates.json`, `scripts/engineering.py` check/report/next, explicit dependency frontier, replay/native/neural evidence scope, GPU blocker discipline. The portable implementation consolidates these rather than depending on Android/Gradle/CMake.

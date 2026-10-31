@@ -45,6 +45,12 @@ the external supervisor, not the Executor. A task's contract_path may be absolut
 the registry directory and must identify a contract with the same task_id.
 See docs/INTEGRATION.md for credential allowlists and release gates.
 
+## Remote delivery is part of completion
+
+For any code-changing agent/Codex task, **commit approved changes, recheck the exact commit, push to the authorized remote branch, and verify the remote SHA matches local HEAD before claiming completion**. A task that only created local files or stopped before a successful push is not delivered. A blocked push must be reported as BLOCKED/NOT_VERIFIED with its cause and local commit; never bypass branch protection or force-push. Read-only, no-change and explicitly local-only tasks are exceptions. See [AGENTS.md](AGENTS.md) and [the exact remote-delivery procedure](docs/ENFORCEMENT.md).
+
+**Status:** This is currently an operating rule, not a hard guarantee from the cloud runner or repository CI.
+
 ## Verify this repository
 
 ```bash
