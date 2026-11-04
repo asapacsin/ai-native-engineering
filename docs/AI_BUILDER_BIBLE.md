@@ -42,6 +42,35 @@ The Reviewer MUST actually be invoked through an external client (for example a 
 
 A stronger reviewer does not automatically fix code. It emits a narrow correction contract for the Executor. Avoid passing entire repo/logs; provide task, fingerprint, changed files and gate failures. Inspect actual diff, not worker claims.
 
+## Reviewer read scope: diff-first, dependency-aware (design standard; not yet implemented)
+
+The goal is **independent, read-only, high-coverage review with minimum irrelevant context**. A new manual session and a hook-triggered fresh reviewer can have comparable context separation; neither approach is automatically better. Preserve the existing Executor → deterministic gates → independent Reviewer → bounded verdict workflow. Improve the review packet and scope, not the number of agents.
+
+1. **Derive mandatory scope independently:** use the trusted task `base_commit` and the actual reviewed tree to identify all changes (committed since base, staged, unstaged, renamed, deleted, and relevant untracked files). Executor-supplied file lists and exclusions must never hide changed source files or required evidence.
+2. **Diff first, not diff only:** provide objective, acceptance criteria, complete changed-file inventory and diff, source fingerprint, contract hash, project instructions, gate results, and relevant tests. Inspect relevant callers, interfaces, shared invariants, configuration, security boundaries, and adjacent code when warranted. Do not dump the entire codebase or executor conversation into the review context by default.
+3. **Audited expansion:** permit the reviewer to broaden scope when correctness requires it; record files inspected and reasons. Context budgets must not silently truncate mandatory evidence. An insufficiently inspected change is `NOT_VERIFIED`, never `PASS`.
+4. **Separate read guidance from enforcement:** task-scope manifests and prompts optimize attention/tokens but do not restrict filesystem reads. Strict file-read isolation requires actual reviewer-process sandbox/OS controls; Claude Code permissions do not automatically constrain a separately launched Codex CLI reviewer. Preserve read-only permissions (no source modification, commit, or merge).
+5. **Bind evidence to the actual state:** retain exact source fingerprint and contract-hash checks, deterministic test gates, stale-evidence rejection, and bounded retries. Record initial scope, expansions, evidence completeness, and limitations in reviewer evidence.
+
+**Proposed optional task-contract field (configuration proposal, not an active feature):**
+
+```json
+{
+  "review_scope": {
+    "mode": "diff_first",
+    "context_paths": [],
+    "exclude_paths": ["node_modules/**", "build/**", "dist/**"],
+    "allow_scope_expansion": true,
+    "log_scope_expansions": true,
+    "read_policy": "advisory"
+  }
+}
+```
+
+`exclude_paths` is only a scanning preference; it must not suppress changed files or required evidence. `advisory` means prompt/packet guidance, not hard read isolation. If strict mode is added, fail closed when its isolation cannot be enforced and allow necessary dependency/evidence access. Preserve existing task contracts when `review_scope` is absent.
+
+**Current gap:** `scripts/codex_bridge.py` already instructs the reviewer to inspect `git diff HEAD` and relevant files, but there is no independently computed read-scope manifest or enforced read allowlist. `.claude/settings.json` and `scripts/pre_tool_guard.py` constrain opt-in write operations, not reviewer reads. Implementing this standard requires scope generation, reviewer-packet changes, validation, tests, and documentation; this Bible update alone does not enable it.
+
 ## Engineering invariants
 
 - **One owner** per mutable state/behavior. Improve existing seams, don't create shadow state machines.
