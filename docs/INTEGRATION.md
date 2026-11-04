@@ -28,7 +28,7 @@ Exit codes: `0 PASS`, `2 REWORK`, `3 BLOCKED`, `4 NOT_VERIFIED`, `5 invalid conf
 
 ## 4. Optional Claude Stop hook
 
-Copy `.claude/hooks/ai-native-stop.py` and `.claude/settings.json` into the *target repo* with `scripts/ai_native.py`. Enable only after testing your CLI configuration:
+Copy `.claude/hooks/ai-native-stop.py` and `.claude/settings.json` into the *target repo* with the controller and its companion modules in `scripts/`. Enable only after testing your CLI configuration:
 
 ```bash
 export AI_NATIVE_STOP_ENABLED=1
@@ -206,3 +206,84 @@ The default output is stdout. If writing inside the target repository, the outpu
 See [ENVIRONMENT_CONTINUATION.md](ENVIRONMENT_CONTINUATION.md) for the exact runner commands and task-status rules. `scripts/capabilities.py` probes whether an NVIDIA GPU, FFmpeg and explicitly identified model files are available. An item with `requires: ["nvidia_gpu", "model_weights"]` is blocked only when those capabilities are absent; unrelated CPU tasks continue. The runner must keep its mutable registry/capabilities gitignored or outside the worktree and protect them from Executor writes.
 
 `scripts/supervisor.py --capabilities <trusted.json> --require-remote` is the opt-in fail-closed delivery mode. It never pushes for you: final checks/review must target the committed source, publication must occur on an authorized branch, and the remote SHA must match. Missing GPU, withheld model approval, or failed GitHub push are named **task-level blockers**, not evidence that a whole project is complete. The cloud task must actually invoke the external supervisor; these files do not install a Codex Cloud Stop hook.
+
+## 14. Diff-first reviewer scope
+
+Copy [review-scope-contract.json](../examples/review-scope-contract.json) outside
+the target worktree or into a Git-ignored folder. Before the Executor starts,
+run `git rev-parse HEAD` at the agreed task baseline and set `base_commit` to
+that full SHA. Point `--repo` at the Git worktree root. Keep the original contract and runner configuration under
+operator or CI control. Edit the example's acceptance, paths, and gate commands
+for the task, then validate it with `scripts/ai_native.py validate --contract`.
+Run the usual cycle or Stop hook with the existing read-only reviewer command.
+When installing the hook in another project, copy the controller with its
+companion Python modules or invoke it from the full source checkout.
+
+| Field | Behavior |
+| --- | --- |
+| `mode` | `diff_first` inspects committed, staged, and unstaged patches and Git-visible untracked files before opening the remaining task context. |
+| `context_paths` | Literal repository-relative files or directories. Directories expand to existing Git-visible files. Name a required Git-ignored test artifact as a literal file. Missing or redirected required context blocks verification. |
+| `exclude_paths` | Slash-aware globs that filter inferred context only. They cannot hide tracked edits, Git-visible untracked files, applicable project instructions, explicit context, or gate evidence. Use Git's ignore rules for disposable build outputs. |
+| `allow_scope_expansion` | Defaults to `true`. The reviewer can open other Git-visible source when a concrete question requires it. If expansion is disabled and required context is missing, the reviewer returns `NOT_VERIFIED`. |
+| `log_scope_expansions` | Defaults to `true` and prints an additional line for each expansion. The result and verdict always retain each reported file and its reason. |
+| `read_policy` | `advisory` guides inspection. Codex still runs in its separate read-only sandbox. `strict` returns `NOT_VERIFIED` because this runner has no enforced read allowlist. Claude Code's own permissions apply to Claude Code. |
+
+Contracts that omit `review_scope` keep the original reviewer protocol.
+An empty `review_scope` object opts into the defaults and requires a trusted
+`base_commit` that is available and an ancestor of the current HEAD. Scoped
+review rejects unresolved index entries, entries marked skip-worktree or
+assume-unchanged, and changed submodules. Track a submodule change with a
+separate task in that repository and supply its evidence through your
+project's verification process.
+
+Each scoped attempt writes `review_scope.json` and includes the manifest and
+its hash in `review_packet.json`. See the [sample manifest](../examples/review-scope-manifest.json),
+which was captured from the regression fixture. The manifest lists both sides
+of renames, deleted paths, and three commands that reproduce the complete
+tracked patches. Each command has a SHA-256 of its raw output. Untracked files
+have content hashes, and links are represented by hashes of the link target
+text. Initial context can also include nearby dependency manifests, conventionally
+named tests, and files named in gate commands. The packet includes gate
+summaries and the path to `gates.json`. Store
+additional mandatory gate outputs at explicit context paths when summaries
+alone cannot prove acceptance. Raw patches are read from Git in the target
+checkout, keeping a second copy of the diff out of run artifacts.
+
+A custom reviewer still returns the original verdict fields and adds the
+following `review_scope` object. The ordered `initial_files` must match the
+manifest for a complete review. The file and reason arrays are positional.
+
+```json
+{
+  "mode": "diff_first",
+  "manifest_hash": "<packet.review_scope_hash>",
+  "initial_files": [
+    "scripts/service.py",
+    ".ai-native/runs/scope/attempt-01/gates.json",
+    "AGENTS.md"
+  ],
+  "additional_files": ["scripts/caller.py"],
+  "expansion_reasons": ["Verify how the caller consumes the updated result."],
+  "scope_complete": true
+}
+```
+
+The controller rejects a complete verdict with missing initial files, a
+stale hash, or a disallowed expansion. The supervisor and merge eligibility
+check the saved scope again before relying on a scoped PASS. Advisory logs
+record what the reviewer reports inspecting. They are not a filesystem
+access audit. Keep Git metadata, the reviewer command, and run artifacts
+under trusted runner control. If the reviewer cannot inspect essential
+material within its limits, it returns `NOT_VERIFIED` with
+`scope_complete: false`.
+
+**Verification example.** Run
+`python3 -m unittest discover -s tests -p test_review_scope.py -v`.
+The end-to-end fixture uses an external test double that executes and verifies
+the three diff commands, reads the untracked source, checks the initial
+context and gate evidence, then opens `scripts/caller.py` to confirm the
+changed function's integration. The test asserts that order and checks that
+the reviewer records the caller and its reason. It also exercises a staged
+edit reversed in the worktree and confirms the path remains visible in both
+patches. This establishes the controller's ordering and evidence protocol
+with a test double. A live Codex run is needed to observe model behavior.

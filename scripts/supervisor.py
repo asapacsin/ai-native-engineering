@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from ai_native import load_json, save_json, work_snapshot
+from ai_native import load_json, save_json, verify_saved_scope, work_snapshot
 from capabilities import load_capabilities, missing_capabilities
 from control_plane import canonical_hash, decide_frontier, verify_decision
 from delivery_gate import check_delivery
@@ -32,6 +32,7 @@ def verified_task(repo: Path, contract: dict, task_id: str) -> bool:
         decision = report.get("control_plane_decision", {})
         snapshot = work_snapshot(repo)
         digest = canonical_hash(contract)
+        verify_saved_scope(repo, contract, snapshot, report)
         return (
             report.get("task_id") == task_id
             and report.get("verdict") == "PASS"
@@ -43,7 +44,7 @@ def verified_task(repo: Path, contract: dict, task_id: str) -> bool:
             and report.get("contract_hash") == digest
             and report.get("reviewed_contract_hash") == digest
         )
-    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+    except (OSError, RuntimeError, KeyError, TypeError, ValueError):
         return False
 
 
