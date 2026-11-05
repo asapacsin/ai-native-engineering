@@ -8,7 +8,6 @@ and governance records with repository permissions/branch rules in production.
 """
 from __future__ import annotations
 import argparse
-import fnmatch
 import hashlib
 import json
 import os
@@ -17,8 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from ai_native import load_json, work_snapshot, validate_contract, save_json
+from ai_native import load_json, save_json, validate_contract, verify_saved_scope, work_snapshot
 from control_plane import decide_frontier, decide_integration, verify_decision
+from git_changes import changed_paths, patterns_match
 
 LEVELS = ["static", "unit", "integration", "e2e", "device", "visual", "performance"]
 PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
@@ -28,47 +28,6 @@ PROTECTED = (".git/", ".ai-native/", ".github/workflows/", "AGENTS.md",
 
 def digest(obj: dict) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def patterns_match(path: str, rule: str) -> bool:
-    """Git-style directory prefix or slash-aware * and ** patterns."""
-    import re
-    rule = rule.replace("\\", "/")
-    if rule.endswith("/"):
-        return path.startswith(rule)
-    expression = ""
-    i = 0
-    while i < len(rule):
-        if rule[i:i + 3] == "**/":
-            expression += "(?:.*/)?"
-            i += 3
-        elif rule[i:i + 2] == "**":
-            expression += ".*"
-            i += 2
-        elif rule[i] == "*":
-            expression += "[^/]*"
-            i += 1
-        elif rule[i] == "?":
-            expression += "[^/]"
-            i += 1
-        else:
-            expression += re.escape(rule[i])
-            i += 1
-    return re.fullmatch(expression, path) is not None
-
-
-def changed_paths(repo: Path, base: str) -> list[str]:
-    subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{base}^{{commit}}"],
-                   check=True, capture_output=True)
-    paths: set[str] = set()
-    for args in (["diff", "--no-renames", "--name-only", "-z", base, "HEAD"],
-                 ["diff", "--no-renames", "--name-only", "-z", "HEAD"],
-                 ["ls-files", "-o", "--exclude-standard", "-z"]):
-        output = subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True).stdout
-        for p in output.split(b"\0"):
-            if p:
-                paths.add(p.decode("utf-8", errors="surrogateescape").replace("\\", "/"))
-    return sorted(paths)
 
 
 def contract_policy(contract: dict) -> list[str]:
@@ -94,8 +53,8 @@ def scope_issues(repo: Path, contract: dict) -> list[str]:
         return issues
     try:
         paths = changed_paths(repo, contract["base_commit"])
-    except subprocess.CalledProcessError:
-        return ["base_commit is missing from this Git checkout"]
+    except (RuntimeError, ValueError):
+        return ["base_commit is invalid, unavailable, or the Git change set could not be read"]
     for p in paths:
         if any(p == x.rstrip("/") or p.startswith(x) for x in PROTECTED):
             issues.append("protected governance file changed: " + p)
@@ -337,6 +296,12 @@ def eligibility(repo: Path, contract: dict, requirements: dict | None = None,
         review_current = latest.get("snapshot", {}).get("fingerprint") == snapshot["fingerprint"]
         contract_current = latest.get("contract_hash") == digest(contract)
         required_gates_pass = not latest.get("failed_required_gates")
+        if review_pass:
+            try:
+                verify_saved_scope(repo, contract, snapshot, latest)
+            except (OSError, RuntimeError, ValueError) as exc:
+                review_pass = False
+                issues.append("review scope evidence is invalid: " + str(exc))
         if not review_pass:
             issues.append("independent reviewer did not PASS")
         if not review_current:
