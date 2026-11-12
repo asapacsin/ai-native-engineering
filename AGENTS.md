@@ -10,6 +10,8 @@
 8. Continue only authorized independent tasks. Stop on truly human-only actions, credentials or irreversible decisions; record and batch human requests rather than asking for every routine next step.
 9. Results must bind to actual source revision/worktree fingerprint. Compile != runtime; JVM != device; offline model clip != live performance. Record evidence level and what was NOT verified.
 10. No secrets in reports, logs, commits, agent prompts or model inputs. Never claim this skeleton has called a real LLM without an explicitly configured reviewer/executor CLI.
+11. **Deliverable completion**: a generated artifact, Git push, Executor exit, reviewer dispatch or single-task PASS is an internal checkpoint. Continue the authorized work toward the full user deliverable; use progress updates instead of ending the conversation at each checkpoint. Await the designated independent reviewer, apply actionable REWORK and resubmit within the existing bounds. Review dispatch is not a verdict, and ordinary review waiting is not an external blocker. See [deliverable continuation](docs/DELIVERABLE_CONTINUATION.md).
+12. Report an early stop only with the real unresolved dependency, host limitation, user interruption or exhausted bound and its preserved evidence. Never imply background execution after a final response, or that copied instructions and idle scripts activate supervision. Full completion requires evidence for the entire requested scope, not merely the last work item.
 
 Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 

@@ -56,6 +56,11 @@ latest end-state review to be a current deterministic TASK_VERIFIED result.
 The existing review logic remains the sole owner of REWORK blocking. Both
 hooks are serialized by the same Stop entry point.
 
+Apply the [deliverable continuation rules](DELIVERABLE_CONTINUATION.md) when
+defining work: a page, commit or dispatched review is a checkpoint, not the
+whole user request. These operating rules do not change this hook's bounded
+or allow-stop behavior, and do not install it in a different host.
+
 ## What was intentionally not ported
 
 The Android repo's `scripts/discover_work.py` scans Android-specific test outputs,

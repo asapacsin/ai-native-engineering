@@ -6,6 +6,12 @@ Reusable, testable workflow distilled from the Android automotive voice-agent an
 
 The optional [portable Stop-hook continuation](docs/HOOK_CYCLE.md) carries the Android repo's bounded keep-going mechanism into this project: it reads the validated work frontier, routes around blocked dependencies, and stops on no progress or a stale end-state review. It is **off by default** and does not discover unrecorded tasks or replace real verification.
 
+The [deliverable continuation rules](docs/DELIVERABLE_CONTINUATION.md) distinguish
+artifact checkpoints, reviewer handoffs and task PASS from completion of the
+user's full request. They require continued authorized work within existing
+bounds and explicit reporting of actual runtime activation; documentation alone
+does not keep a chat or supervisor running.
+
 The optional Claude Code pre-tool guard (`scripts/pre_tool_guard.py`) can block out-of-scope file edits and common destructive shell commands **before** execution. It is opt-in and defense-in-depth, not a full OS sandbox; see the [pre-tool guard guide](docs/PRE_TOOL_GUARD.md).
 
 For environments without GPU or model weights, the host-run supervisor now supports a runner-owned [capability snapshot](docs/ENVIRONMENT_CONTINUATION.md): resource-dependent tasks become `BLOCKED_EXTERNAL` while independent CPU work continues. `--require-remote` optionally prevents local-only task PASS from becoming successful delivery before the reviewed commit is observed on the authorized remote branch. Neither mechanism runs automatically in a standalone Codex Cloud conversation; the external supervisor must be configured and invoked.
