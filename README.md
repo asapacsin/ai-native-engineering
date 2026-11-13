@@ -4,6 +4,8 @@
 
 Reusable, testable workflow distilled from the Android automotive voice-agent and Aurel game. **Not just prompts:** the Python controller runs real commands, records evidence tied to source fingerprint, hands a packet to an external read-only reviewer, and enforces `PASS | REWORK | BLOCKED | NOT_VERIFIED` with bounded retries.
 
+**Verdict ownership:** Proposer/Planner proposes requirements, Executor implements and reports evidence, **only the independent Reviewer issues a task-review verdict**. Controller/CI may reject a Reviewer PASS when objective gates fail; they cannot promote an Executor/Proposer claim into PASS. A missing Reviewer means NOT_VERIFIED. See the [Bible's authority boundary](docs/AI_BUILDER_BIBLE.md#exclusive-verdict-authority-reviewer-only).
+
 The optional [portable Stop-hook continuation](docs/HOOK_CYCLE.md) carries the Android repo's bounded keep-going mechanism into this project: it reads the validated work frontier, routes around blocked dependencies, and stops on no progress or a stale end-state review. It is **off by default** and does not discover unrecorded tasks or replace real verification.
 
 The optional Claude Code pre-tool guard (`scripts/pre_tool_guard.py`) can block out-of-scope file edits and common destructive shell commands **before** execution. It is opt-in and defense-in-depth, not a full OS sandbox; see the [pre-tool guard guide](docs/PRE_TOOL_GUARD.md).
