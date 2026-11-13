@@ -31,12 +31,24 @@ Human-approved spec + cost/acceptance contract
 
 The Reviewer MUST actually be invoked through an external client (for example a configured Codex CLI invocation) and given a read-only role/prompt. Merely setting `model_policy.independent_reviewer = Astra` does not call that model. See `docs/INTEGRATION.md`.
 
+## Exclusive verdict authority: Reviewer only
+
+**The Proposer is never the judge of its own proposal.** This is a mandatory separation of duties across proposals, implementation, tests, research claims, and release decisions:
+
+1. **Proposer / Planner** defines a candidate plan, requirements, acceptance criteria, assumptions and evidence to gather. It may say *ready for review* or *proposed complete*, **not** `PASS`, `FAIL` or any final acceptance verdict. A proposal's confidence score is not a review.
+2. **Executor** implements the approved scope, runs checks and reports commands, observations and unresolved issues. It cannot mark its own task `PASS` or `FAIL`, and must not write, forge or reuse reviewer results. A green build is evidence, not an approval.
+3. **Independent Reviewer** alone issues the task-review verdict: `PASS`, `REWORK` (failed acceptance / fixable defects), `BLOCKED` (external dependency), or `NOT_VERIFIED` (missing or inconclusive evidence). If someone says `FAIL` for a task, map it to an actionable reviewer `REWORK`, `BLOCKED`, or `NOT_VERIFIED`; the portable protocol does not have a generic `FAIL` reviewer verdict.
+4. **Trusted deterministic controller / CI** runs objective checks and can *veto* a Reviewer `PASS` when requirements, required gates, scope, freshness, or authorization fail. It does not substitute its own acceptance judgment for a Reviewer verdict. Missing, failed, forged, or stale Reviewer output means `NOT_VERIFIED` (or an explicitly named blocking control state), **never PASS**.
+5. **Human/owner** approves goals, risk tolerance, exception handling and integration policy. Contract approval by a Planner/Architect/Owner is **not** a task-quality verdict; merge/release additionally requires required CI and independently authorized review.
+
+A task contract, Proposer summary, Executor message, green test result or local status field must never be treated as a Reviewer-issued acceptance decision. Verdict evidence must be bound to the exact source fingerprint and contract hash and produced by a fresh external Reviewer process. The runner collects Reviewer output outside the Proposer/Executor worktree and only persists a validated copy. For true role isolation, enforce different identities/worktrees, read-only Reviewer access, protected CI/evidence and branch rules: self-reported role strings and SHA-256 consistency alone are **not authentication**.
+
 ## Model policy
 
 | Role | Default strategy | When invoked |
 | --- | --- | --- |
+| Proposer / Planner | short, optional higher-reasoning context | Propose scope, requirements and acceptance tests; never issue a verdict |
 | Executor | capable economical model such as GPT-6 Luna Medium | Most coding, tests, fixes, doc work |
-| Planner | short, optional higher-reasoning context | Scope ambiguity, subtask allocation |
 | Reviewer | *independent* strong model such as GPT-6 Astra High | End-state inspection, diff, acceptance, evidence, risks |
 | Architect | expensive high-reasoning model | New architecture, violated invariant, ambiguous defect after 2 failed fixes |
 
