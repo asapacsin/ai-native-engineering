@@ -4,6 +4,7 @@
 ## Verification evidence
 - [ ] Independent requirements manifest exists outside Executor control
 - [ ] Relevant negative/positive tests run (paste exact command and result below)
+- [ ] Only the independent Reviewer issued a task verdict; Proposer/Executor claims are not approval
 - [ ] Diff reviewed against actual requirements; no tests weakened to obtain PASS
 - [ ] Project-specific device/GPU/browser E2E evidence attached if required, otherwise explicitly NOT_VERIFIED
 - [ ] Current commit SHA matches the tested/reviewed SHA
