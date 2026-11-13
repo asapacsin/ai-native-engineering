@@ -16,6 +16,12 @@ Valid verdicts: `PASS`, `REWORK`, `BLOCKED`, `NOT_VERIFIED`. The deterministic c
 
 Do not run the reviewer with source-editing permissions. A non-mutating source snapshot check detects changes to tracked/untracked files, but cannot substitute for OS read-only permissions or a dedicated worktree.
 
+### Reviewer-only verdict ownership
+
+The Proposer/Planner defines proposed acceptance, the Executor delivers implementation evidence, and **only the independently invoked Reviewer may issue the task-review verdict**. Proposer/Executor reports may say `ready_for_review` or describe failing tests, but a task-level `PASS`/`FAIL` claim from either is never authoritative. The Reviewer protocol has `PASS`, `REWORK`, `BLOCKED`, `NOT_VERIFIED` (not generic task-level `FAIL`). The deterministic controller applies gates and can downgrade/reject a Reviewer PASS; it cannot invent PASS without one.
+
+The controller now gives the Reviewer process a fresh `AI_NATIVE_REVIEW_RESULT` path **outside the target worktree**. Its wrapper (for example `codex_bridge.py reviewer`) writes the result there; after checking exit status, JSON, fingerprints and scope, the controller persists a sanitized copy in `.ai-native/runs/...`. A Proposer-written file in the run directory is not a valid input verdict. Custom Reviewer CLIs must be able to write to the temporary path even when the model's source-access sandbox is read-only. This helps prevent stale/shared-output confusion, but the runner, filesystem, reviewer command and protected CI still require separately enforced trust boundaries.
+
 ## 3. Drive the cycle
 
 ```bash
