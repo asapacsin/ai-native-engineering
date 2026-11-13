@@ -18,7 +18,7 @@ The functions return a structured result with rule version, action, reason codes
 
 ## Core invariants
 
-1. **No LLM self-approval.** The reviewer is a separate process; its verdict alone is not sufficient.
+1. **Reviewer-only verdict authority; no self-approval.** A Proposer/Planner specifies the task and an Executor supplies evidence; neither may issue a task-review PASS/FAIL. Only a separate independent Reviewer process issues `PASS`, `REWORK`, `BLOCKED`, or `NOT_VERIFIED`. The control plane can veto a reviewer PASS, not originate one.
 2. **No false green.** Required gate failure, missing evidence, blocked dependencies, or absent reviewer data cannot become PASS.
 3. **Bind review to the exact input.** The reviewer must return the exact source fingerprint and task-contract hash from the review packet.
 4. **Bind gates to the pre-test tree.** If a gate changes tracked or untracked source state, the evidence is rejected as stale.
