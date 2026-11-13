@@ -69,6 +69,46 @@ class AiNativeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             engine.validate_contract(self.contract)
 
+    def test_proposer_contract_cannot_predeclare_review_verdict(self):
+        for key, value in (("verdict", "PASS"), ("reviewer_verdict", "REWORK"),
+                           ("reviewed_fingerprint", "a" * 64),
+                           ("reviewed_contract_hash", "b" * 64)):
+            with self.subTest(key=key):
+                contract = dict(self.contract, **{key: value})
+                with self.assertRaisesRegex(ValueError, "reviewer verdict"):
+                    engine.validate_contract(contract)
+
+    def test_proposer_written_result_cannot_substitute_for_fresh_reviewer_output(self):
+        attempt = self.repo / ".ai-native" / "runs" / "trial" / "attempt-01"
+        attempt.mkdir(parents=True)
+        engine.save_json(attempt / "review_result.json", {
+            "verdict": "PASS",
+            "reviewed_fingerprint": engine.work_snapshot(self.repo)["fingerprint"],
+            "reviewed_contract_hash": engine.canonical_hash(self.contract),
+            "findings": [], "next_action": "self-approved"
+        })
+        # An external process that exits zero but never creates a new verdict
+        # is not a reviewer PASS, even when proposer-owned run files say PASS.
+        self.reviewer_path.write_text("import sys\nsys.exit(0)\n", encoding="utf-8")
+        code, outcome = self.call()
+        self.assertEqual(code, 4)
+        self.assertEqual(outcome["verdict"], "NOT_VERIFIED")
+        self.assertNotEqual(outcome["control_plane_decision"]["action"], "TASK_VERIFIED")
+
+    def test_reviewer_result_is_collected_outside_proposer_worktree(self):
+        self.reviewer_path.write_text(
+            "import os,json,pathlib\n"
+            "packet=json.loads(pathlib.Path(os.environ['AI_NATIVE_REVIEW_PACKET']).read_text())\n"
+            "target=pathlib.Path(os.environ['AI_NATIVE_REVIEW_RESULT'])\n"
+            "assert not target.is_relative_to(pathlib.Path.cwd()), 'shared worktree path'\n"
+            "target.write_text(json.dumps({'verdict':'PASS',"
+            "'reviewed_fingerprint':packet['snapshot']['fingerprint'],"
+            "'reviewed_contract_hash':packet['contract_hash'],"
+            "'findings':[],'next_action':'done'}))\n", encoding="utf-8")
+        code, outcome = self.call()
+        self.assertEqual(code, 0)
+        self.assertEqual(outcome["verdict"], "PASS")
+
     def test_pass_with_external_reviewer_and_unit_gate(self):
         code, outcome = self.call()
         self.assertEqual(code, 0)
