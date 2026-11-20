@@ -36,3 +36,11 @@ Canonical method: [`docs/AI_BUILDER_BIBLE.md`](docs/AI_BUILDER_BIBLE.md).
 - On every Executor exit, let the external supervisor recompute the frontier. Continue independent tasks while `CONTINUE_FRONTIER` is available within budget. Return `WAIT_EXTERNAL` with exact blocked items when only external work remains; do not call that project `COMPLETE`.
 - For remotely delivered code tasks use `scripts/supervisor.py --require-remote` and verify the reviewed local commit is clean and matches the authorized remote branch. A local PASS without remote delivery is not successful delivery. Never force-push, bypass protections, or self-approve a merge.
 - Instructions alone cannot enforce this on a Codex Cloud task. The host must actually run the supervisor and maintain the trusted registry and capability snapshot. See [`docs/ENVIRONMENT_CONTINUATION.md`](docs/ENVIRONMENT_CONTINUATION.md).
+
+## Context budget and specification retrieval
+
+- Before loading a long Markdown spec, run `python3 scripts/spec_section.py <path>` to list up-to-date headings/ranges, then `python3 scripts/spec_section.py <path> <section>` to retrieve the required section. Start with the task's named section and contracts, not the whole feature folder or unrelated repositories.
+- The separate optional Claude Code Read budget hook (`scripts/read_guard.py`) discourages full Read of text files over 40 KiB; use Grep and Read offset/limit. Override with `AI_NATIVE_READ_GUARD_KB` (0 disables). This is fail-open context optimization, **not** an access-control policy; `scripts/pre_tool_guard.py` and required gates keep their stricter behavior.
+- Use a cheap read-only search agent for narrow discovery where supported, keep implementation and routine fixes with the Executor, and reserve truly independent acceptance review for end state. Existing scope manifests and diff/requirement evidence must never be truncated to save tokens.
+- If live status/history grows, use an adapter with reasoned keep/summarize/archive decisions, searchable full archives, dependency-preserving stubs, and validation. Do not blindly copy the iOS history script into this repo or alter immutable evidence.
+- Source, setup, measurement policy: [docs/CONTEXT_BUDGET.md](docs/CONTEXT_BUDGET.md). Token reductions and cost/performance gains require actual measurements; file-size change alone is not proof.
