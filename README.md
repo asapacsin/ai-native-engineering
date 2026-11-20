@@ -45,6 +45,15 @@ the external supervisor, not the Executor. A task's contract_path may be absolut
 the registry directory and must identify a contract with the same task_id.
 See docs/INTEGRATION.md for credential allowlists and release gates.
 
+## Portable context-budget tooling (NovaDrive iOS import)
+
+The iOS project's November 19 practices are adapted in [the context-budget guide](docs/CONTEXT_BUDGET.md): section-level Markdown extraction (`scripts/spec_section.py`), an optional 40 KiB Claude Read budget (`scripts/read_guard.py`), scoped role/context guidance, and a hot/cold history policy requiring a project-specific adapter. The Read hook is separate from the fail-closed write guard and can be disabled with `AI_NATIVE_READ_GUARD_KB=0`. This does not auto-shard project specs, auto-route models or archive unrelated registries; actual cost savings have not been measured here.
+
+```bash
+python3 scripts/spec_section.py docs/AI_BUILDER_BIBLE.md
+python3 scripts/spec_section.py docs/AI_BUILDER_BIBLE.md "Model policy"
+```
+
 ## Verify this repository
 
 ```bash
