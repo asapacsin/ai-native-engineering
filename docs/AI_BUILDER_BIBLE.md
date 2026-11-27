@@ -4,6 +4,64 @@
 
 Increase *validated useful outcomes per dollar and hour*, not tokens consumed or agents spawned. Human defines outcomes, architecture boundaries and risk appetite; software runs deterministic verification; independent AI reviewer is called only at the end-state and for substantive decisions.
 
+## Evidence-driven spec development (EDSD)
+
+Use this discovery cycle before approving the production specification when a design depends on uncertain technical feasibility, unfamiliar APIs, model behavior, integration constraints or performance. EDSD is a descriptive name for our workflow, not a claim of a new industry standard. It combines LLM-assisted exploration, technical spikes (small proofs of concept), evidence-based specification and the existing independent verification loop.
+
+```text
+Human objective + constraints
+          |
+Human / LLM discussion: candidates, assumptions, unknowns
+          |
+Review official docs, relevant implementations and community experience
+          |
+Define hypothesis + measurable success criteria + experiment budget
+          |
+Executor: isolated minimal PoC / reproducible experiment
+          |
+Measure actual results and inspect limitations
+          |
+          +-- unsupported / inconclusive --> revise hypothesis or record blocker
+          |                                  and repeat within budget
+          |
+          +-- supported --> record evidence + decision + residual risks
+                                  |
+                       Human-approved spec / acceptance contract
+                                  |
+                       Existing default control loop
+                       (Executor -> deterministic gates -> independent Reviewer)
+                                  |
+                       Accept or revise; preserve new knowledge
+```
+
+### Discovery and promotion rules
+
+1. **Reason before building.** The human sets the outcome and constraints. Discuss candidate approaches with an LLM; distinguish facts, assumptions and unknowns. Check authoritative documentation and source code first; use community experience for candidate discovery and known failure modes, not as proof that the local implementation works.
+2. **Test the highest-risk assumption first.** Define a falsifiable hypothesis, baseline where useful, input/environment, measurable success threshold and time/token/GPU budget before running the experiment. Build the smallest representative PoC that can answer the question; do not integrate an unvalidated architecture into the production codebase.
+3. **Measure rather than trust.** Execute the PoC and preserve commands, versions, inputs, observed outputs, repeatability, limitations and negative results. A plausible LLM explanation, community recommendation or unexecuted test is not empirical evidence. Classify the hypothesis as supported, rejected or inconclusive under the tested conditions; these are experiment findings, not production PASS/FAIL verdicts.
+4. **Promote knowledge, not necessarily code.** Add supported technical decisions to the relevant spec section with links to evidence, applicable conditions, measurable acceptance criteria and remaining integration risks. Keep unvalidated claims explicitly provisional. Human approval is required before the production specification becomes an execution contract; use independent review for substantive or high-risk decisions according to the existing model policy.
+5. **Implement and independently verify.** The Executor implements against the approved spec; deterministic gates and the read-only independent Reviewer verify the actual production revision. A successful PoC proves only the scoped hypothesis, not production reliability, security, scalability or end-to-end correctness. Preserve the existing PASS/REWORK/BLOCKED/NOT_VERIFIED semantics and bounded retries.
+6. **Close the learning loop.** If production evidence contradicts the spec, record the discrepancy, revisit the hypothesis and obtain approval for a revised contract rather than silently weakening acceptance criteria.
+
+### Minimal experiment record
+
+Keep the record beside the affected specification, or link to an existing evidence location. Use the lightest structure that preserves reproducibility.
+
+- Question / hypothesis and why it matters
+- Candidate solution, baseline and external references
+- Predeclared success criteria, environment and budget
+- PoC path or revision, exact commands and observed results
+- Supported / rejected / inconclusive, limitations and next decision
+- Spec section affected and production acceptance tests required
+
+For example, `specs/<feature>/experiments/<spike-id>/` may contain the experiment record, minimal PoC and results, with links from `spec.md`. Avoid duplicating large logs or loading unrelated spec sections.
+
+### When to use the cycle
+
+For routine, well-understood changes with no material feasibility uncertainty, go directly to the normal human-approved spec and execution loop. For uncertain AI/model behavior, latency, new dependencies or architectural choices, run a focused spike first. Start sequentially with the existing Planner/Executor/Reviewer roles; this method introduces neither a mandatory extra agent nor parallel execution. Escalate or stop when the experiment budget is exhausted; record the unresolved question rather than manufacturing certainty.
+
+The objective is faster judgment-to-evidence feedback and fewer costly production reworks, measured in validated outcomes per dollar and hour, not the number of experiments or pages of specifications.
+
 ## Default control loop
 
 ```text
